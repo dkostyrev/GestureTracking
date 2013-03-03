@@ -9,7 +9,9 @@ public:
     BlobProcessor();
     void Process(cv::Mat skinMap, cv::Mat input);
 
-    void SuppressBadClusters(cv::Mat input, std::vector<cv::Rect> cluster);
+    void GetGoodClusters(std::vector<cv::Rect> clusters, std::vector<cv::Rect> &goodClusters);
+    void DispMap(cv::Mat input, cv::Mat &output);
+    void RecognizeClusters(cv::Mat input, std::vector<cv::Rect> clusters);
 private:
     cv::Mat hsv;
 };

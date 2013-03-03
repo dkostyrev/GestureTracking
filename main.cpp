@@ -17,8 +17,9 @@ int main()
 {
     cv::VideoCapture cap;
     //cap.open(0);
-    cap.open("C:\\Projects\\GestureTracking\\SampleVideos\\good_brightness_clips\\open_palm_shown_c.avi");
+    //cap.open("C:\\Projects\\GestureTracking\\SampleVideos\\good_brightness_clips\\open_palm_shown_c.avi");
     //cap.open("C:\\Projects\\GestureTracking\\SampleVideos\\medium_brightness_clips\\pan_c.avi");
+    cap.open("D:\\Dropbox\\GestureTrackingSampleVideos\\open_palm_shown_c.avi");
     cv::Mat frame, skinMap, foregroundMap;
     BlobGetter blobGetter = BlobGetter(TIMEDISPERSION);
     BlobProcessor blobProcessor = BlobProcessor();
