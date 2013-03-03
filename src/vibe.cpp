@@ -14,7 +14,7 @@ void ViBe::Initialize(cv::Mat firstframe)
 {
     N = 10;
     R = 20;
-    smin = 1 ;
+    smin = 1;
     r_s = 20 ;
     samples = std::vector<cv::Mat>(N);
     for (size_t i = 0; i < samples.size(); ++i){
