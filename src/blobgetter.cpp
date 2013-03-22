@@ -5,11 +5,15 @@ BlobGetter::BlobGetter(BackgroudSubstractionTechique backgroundSubtractor)
     this->isFirstFrame = true;
     this->medianKernel = cv::Mat(9, 9, CV_32F);
     this->medianKernel.setTo(cv::Scalar(1./81));
+    this->defaultLow = cv::Scalar(20, 133, 80);
+    this->defaultHigh = cv::Scalar(140, 173, 120);
+    ResetColourThresholds();
 }
 
 void BlobGetter::Process(cv::Mat input, cv::Mat &skinMap, cv::Mat &foregroundMap)
 {
     GetSkinRegionMap(input, skinMap);
+    //FilterBySize(skinMap, skinMap);
     MedianFilter(skinMap, skinMap, 1);
     cv::cvtColor(input, input, CV_BGR2GRAY);
     if (isFirstFrame){
@@ -24,12 +28,26 @@ void BlobGetter::Process(cv::Mat input, cv::Mat &skinMap, cv::Mat &foregroundMap
 
 }
 
+void BlobGetter::FilterBySize(cv::Mat rawSkinMap, cv::Mat& skinMap)
+{
+    const int THRESHOLD = 100;
+    std::vector<std::vector<cv::Point> > contours, goodContours;
+    cv::findContours(rawSkinMap, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+    for (size_t i = 0; i < contours.size(); ++i) {
+        if (cv::contourArea(contours.at(i)) > THRESHOLD) {
+            goodContours.push_back(contours.at(i));
+        }
+    }
+    skinMap = cv::Mat(rawSkinMap.rows, rawSkinMap.cols, CV_8UC1);
+    cv::drawContours(skinMap, goodContours, -1, cv::Scalar(255), CV_FILLED, CV_AA);
+}
+
 
 void BlobGetter::InitializeBackgroundSubtractor(cv::Mat firstFrame)
 {
     switch (this->backgroundSubtractor){
         case TIMEDISPERSION: {
-            timeDispersion = TimeDispersion(firstFrame.cols, firstFrame.rows, 5, 7);
+            timeDispersion = TimeDispersion(firstFrame.cols, firstFrame.rows, 2, 2);
             timeDispersion.UpdateHistory(firstFrame);
             break;
         }
@@ -73,8 +91,14 @@ void BlobGetter::GetForegroundMap(cv::Mat input, cv::Mat& foregroundMap)
 
 void BlobGetter::GetSkinRegionMap(cv::Mat input, cv::Mat& skinMap)
 {
+    cv::GaussianBlur(input, input, cv::Size(5, 5), 1, 1);
     cv::cvtColor(input, skinMap, CV_BGR2YCrCb);
-    cv::inRange(skinMap, cv::Scalar(0, 133, 80), cv::Scalar(180, 173, 120), skinMap);
+    if (isThresholdsAdapted)
+        cv::inRange(skinMap, this->adaptLow, this->adaptHigh, skinMap);
+    else
+        cv::inRange(skinMap, this->defaultLow, this->defaultHigh, skinMap);
+    cv::erode(skinMap, skinMap, cv::Mat());
+    cv::dilate(skinMap, skinMap, cv::Mat());
 }
 
 void BlobGetter::MedianFilter(cv::Mat input, cv::Mat &output, size_t times)
@@ -85,4 +109,22 @@ void BlobGetter::MedianFilter(cv::Mat input, cv::Mat &output, size_t times)
         mask = (md > 155);
     }
     output = mask;
+}
+
+void BlobGetter::AdaptColourThresholds(cv::Mat input, cv::Rect roi)
+{
+    cv::Mat ycrcb;
+    ResetColourThresholds();
+    cv::cvtColor(input, ycrcb, CV_BGR2YCrCb);
+    ColorFinder finder = ColorFinder();
+    finder.find(adaptLow, adaptHigh, 1, ycrcb);
+    finder.find(adaptLow, adaptHigh, 2, ycrcb);
+    this->isThresholdsAdapted = true;
+}
+
+void BlobGetter::ResetColourThresholds()
+{
+    this->adaptLow = cv::Scalar(20, 0, 0);
+    this->adaptHigh = cv::Scalar(140, 0, 0);
+    this->isThresholdsAdapted = false;
 }

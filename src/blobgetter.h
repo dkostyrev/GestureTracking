@@ -3,6 +3,7 @@
 #include "opencv2/opencv.hpp"
 #include "timedispersion.h"
 #include "vibe.h"
+#include "ColorFinder.h"
 enum BackgroudSubstractionTechique {
     TIMEDISPERSION, VIBE, MOG, NONE
 };
@@ -12,8 +13,12 @@ class BlobGetter
 public:
     BlobGetter(BackgroudSubstractionTechique backgroundSubtractor = TIMEDISPERSION);
     void Process(cv::Mat input, cv::Mat& skinMap, cv::Mat &foregroundMap);
-
+    void FilterBySize(cv::Mat rawSkinMap, cv::Mat &skinMap);
+    void AdaptColourThresholds(cv::Mat input, cv::Rect roi);
+    void ResetColourThresholds();
 private:
+    cv::Scalar defaultLow, defaultHigh, adaptLow, adaptHigh;
+    bool isThresholdsAdapted;
     void InitializeBackgroundSubtractor(cv::Mat firstFrame);
     void GetForegroundMap(cv::Mat input, cv::Mat &foregroundMap);
     void GetSkinRegionMap(cv::Mat input, cv::Mat &skinMap);
