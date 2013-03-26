@@ -49,6 +49,17 @@ IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors,integramO
 	this->histogram = std::vector<sector>();
 }
 //--------------------------------------------------------------
+IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors, integramOrientationHistogramFilterType filterType, cv::Mat src, int threshold) {
+    this->total_sectors = sectors;
+    this->filterType = filterType;
+    this->roi = &src;
+    this->threshold = threshold;
+    this->histogram = std::vector<sector>();
+    dx = new cv::Mat(roi->size(),CV_32F);
+    dy = new cv::Mat(roi->size(),CV_32F);
+    circularHistogram = cv::Mat(400,400,CV_8UC3);
+}
+//--------------------------------------------------------------
 IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors, integramOrientationHistogramFilterType filterType, cv::Mat src, cv::Rect roirect, int threshold) {
 	this->total_sectors = sectors;
 	this->filterType = filterType;

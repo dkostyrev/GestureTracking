@@ -17,6 +17,9 @@ int main()
 {
     cv::VideoCapture cap;
     cap.open(0);
+    //cap.set(CV_CAP_PROP_BRIGHTNESS, 150);
+    //cap.set(CV_CAP_PROP_CONTRAST, 150);
+    //cap.set(CV_CAP_PROP_SATURATION, 150);
     //cap.open("C:\\Projects\\GestureTracking\\SampleVideos\\good_brightness_clips\\open_palm_shown_c.avi");
     //cap.open("C:\\Projects\\GestureTracking\\SampleVideos\\medium_brightness_clips\\pan_c.avi");
     //cap.open("D:\\Dropbox\\GestureTrackingSampleVideos\\open_palm_shown_c.avi");
@@ -27,8 +30,8 @@ int main()
     while (cap.read(frame)){
         blobGetter.Process(frame, skinMap, foregroundMap);
         cv::imshow("skinmap", skinMap);
-        blobProcessor.Process(skinMap, foregroundMap, frame);
-        //cv::imshow("Frame", frame);
+        blobProcessor.Process(frame, skinMap, foregroundMap);
+        cv::imshow("Frame", frame);
 
         switch (mode){
             case SKIN:

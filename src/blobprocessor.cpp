@@ -2,78 +2,148 @@
 
 BlobProcessor::BlobProcessor()
 {
-    deserializeFileToContours("open_palm.txt", trainContours);
+    deserializeContours("open_palm.txt", trainContours);
+    classifier = Classifier();
+    trainInProgress = false;
+    this->medianKernel = cv::Mat(9, 9, CV_32F);
+    this->medianKernel.setTo(cv::Scalar(1./81));
+
 }
 std::vector<cv::Point> trainContours;
-void BlobProcessor::Process(cv::Mat skinMap,cv::Mat foregroundMap, cv::Mat input)
+void BlobProcessor::Process(cv::Mat input, cv::Mat skinMap, cv::Mat foregroundMap)
 {
-    //foreground map is null for the moment
-    cv::Mat dispMap;
+    cv::Mat dispMap, buf = cv::Mat(input.size(), CV_8UC3);
+    buf.setTo(cv::Scalar(0,0,0));
+    std::vector<cv::Rect> rois;
+
     cv::cvtColor(input, dispMap, CV_BGR2GRAY);
-    DispMap(dispMap, dispMap, 3);
-    cv::imshow("disp", dispMap);
-    //std::vector<cv::Rect> rects;
-    //getRects(skinMap, rects);
-   /* std::vector<std::vector<cv::Point> > contours;
-    cv::findContours(dispMap, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-    size_t minContourIndex = -1;
-    double min = 10e30;
-    for (size_t i = 0; i < contours.size(); ++i) {
-        if (cv::contourArea(contours.at(i)) > 100) {
-            std::vector<cv::Point> approx;
-            cv::approxPolyDP(contours.at(i), approx, 0.03, false);
-            double sum = 0;
-            for (size_t a = 0; a < trainContours.size(); ++a) {
-                sum += cv::matchShapes(approx, trainContours.at(a), CV_CONTOURS_MATCH_I2, 0);
-            }
-            sum = sum / trainContours.size();
-            if (sum < min) {
-                min = sum;
-                minContourIndex = i;
-            }
-        }
-    } */
-
-    std::vector<std::vector<cv::Point> > cont;
-    getContours(skinMap, cont);
-    std::vector<cv::Point> hull;
-    for (size_t i = 0; i < cont.size(); ++i) {
-        cv::convexHull(cont.at(i), hull, false, true);
-        for (size_t a = 0; a < hull.size(); ++a) {
-            cv::circle(input, hull.at(a), 3, cv::Scalar(255, 0, 0));
+    DispMap(dispMap, dispMap, 4);
+    MedianFilter(dispMap, dispMap, 1);
+    std::vector<std::vector<cv::Point> > dispContours, goodContours;
+    getContours(dispMap, dispContours, CV_RETR_LIST);
+    for (size_t i = 0; i < dispContours.size(); ++i) {
+        if (cv::contourArea(dispContours.at(i)) > 150) {
+            goodContours.push_back(dispContours.at(i));
         }
     }
+    dispMap.setTo(cv::Scalar(0));
+    cv::drawContours(dispMap, goodContours, -1, cv::Scalar(255));
 
-    //cv::rectangle(input, cv::boundingRect(contours.at(minContourIndex)), cv::Scalar(255, 0, 0), 10);
-    //cv::imshow("output", input);
-    cv::imshow("input", input);
-    /*
-    std::vector<cv::Rect> rects;
+    getCuttedRoisFromMap(skinMap, rois, 10);
     std::vector<std::vector<cv::Point> > contours;
-    getContours(skinMap, contours);
-    cv::Mat buff;
-    int key = 0;
-    while(key != 27 || key == (int)'c') {
-        for (size_t i = 0; i < contours.size(); ++i) {
-            if (cv::contourArea(contours.at(i)) > 100) {
-                skinMap.copyTo(buff);
-                cv::rectangle(buff, cv::boundingRect(contours.at(i)), cv::Scalar(255));
-                cv::imshow("pick rectangle", buff);
-                key = cv::waitKey(0);
-                if (key == (int)'c') {
-                    serializeContour("hand.txt", contours.at(i));
-                    break;
-                }
-                if (key == 27) {
-                    break;
-                }
+    int key = cv::waitKey(1);
+    if (key == (int) 't') {
+        trainInProgress = true;
+        trainProcedure(skinMap, rois);
+    }
+    for (size_t i = 0; i < rois.size(); ++i) {
+        std::vector<cv::Point> contour = getMaxContourFromRoi(skinMap, rois.at(i));
+        cv::rectangle(buf, rois.at(i), cv::Scalar(255, 0, 0));
+        contours.clear();
+        contours.push_back(contour);
+        cv::drawContours(buf, contours, 0, cv::Scalar(255, 0, 0));
+        if (classifier.GetTrainSetSize() > 0 && !trainInProgress) {
+            int label = classifier.Recognize(contour);
+            if (label > 0) {
+                cv::rectangle(buf, rois.at(i), cv::Scalar(0, 255, 0));
             }
         }
     }
-    */
+    //cv::imshow("result contours", buf);
+    //cv::imshow("time disp", foregroundMap);
+    cv::imshow("disp", dispMap);
 }
 
-void BlobProcessor::deserializeFileToContours(std::string filename, std::vector<std::vector<cv::Point> > &contours)
+void BlobProcessor::trainProcedure(cv::Mat map, std::vector<cv::Rect> rois) {
+    std::vector<cv::Point> contour;
+    std::vector<std::vector<cv::Point> > contours;
+    cv::Mat buf = cv::Mat(map.size(), CV_8UC3);
+    while (true) {
+        for (size_t i = 0; i < rois.size(); ++i) {
+            contour = getMaxContourFromRoi(map, rois.at(i));
+            contours.clear();
+            contours.push_back(contour);
+            buf.setTo(cv::Scalar(0, 0, 0));
+            cv::rectangle(buf, rois.at(i), cv::Scalar(255, 0, 0));
+            cv::drawContours(buf, contours, 0, cv::Scalar(255, 0, 0));
+            cv::imshow("classify contour", buf);
+            int key = cv::waitKey(0);
+            switch (key) {
+                case int('0'):
+                    std::cout << "classified as 0 class" << std::endl;
+                    classifier.AddToTrainSet(contour, 0);
+                    break;
+                case int('1'):
+                    std::cout << "classified as 1 class" << std::endl;
+                    classifier.AddToTrainSet(contour, 1);
+                    break;
+                case int('2'):
+                    std::cout << "classified as 2 class" << std::endl;
+                    classifier.AddToTrainSet(contour, 2);
+                    break;
+                case int('3'):
+                    std::cout << "classified as 3 class" << std::endl;
+                    classifier.AddToTrainSet(contour, 3);
+                    break;
+                case int ('e'):
+                    std::cout << "end of classification" << std::endl;
+                    classifier.Train();
+                    trainInProgress = false;
+                    return;
+                    break;
+                case 27:
+                    return;
+                default:
+                    break;
+            }
+        }
+    }
+}
+
+std::vector<cv::Point> BlobProcessor::getMaxContourFromRoi(cv::Mat map, cv::Rect roi) {
+    std::vector<std::vector<cv::Point> > contours;
+    size_t maxI = -1; int maxArea = 0;
+    getContours(map(roi), contours, CV_RETR_EXTERNAL, roi.tl());
+    for (size_t c = 0; c < contours.size(); ++c) {
+        if (cv::contourArea(contours.at(c)) > maxArea) {
+            maxArea = cv::contourArea(contours.at(c));
+            maxI = c;
+        }
+    }
+    return contours.at(maxI);
+}
+
+void BlobProcessor::getCuttedRoisFromMap(cv::Mat map, std::vector<cv::Rect> & rois, int extra) {
+    std::vector<std::vector<cv::Point> > contours;
+    getContours(map, contours);
+    for (size_t i = 0; i < contours.size(); ++i) {
+        if (cv::contourArea(contours.at(i)) > 50) {
+            std::vector<cv::Rect> rects;
+            cutRoi(contours.at(i), rects);
+            for (size_t r = 0; r < rects.size(); ++r) {
+                if (rects.at(r).area() > 100) {
+                    rects.at(r).x -= extra / 2;
+                    rects.at(r).width += extra;
+                    rects.at(r).y -= extra / 2;
+                    rects.at(r).height += extra;
+                    if (rects.at(r).x < 0)
+                        rects.at(r).x = 0;
+                    if (rects.at(r).width + rects.at(r).x >= map.cols)
+                        rects.at(r).width = map.cols - rects.at(r).x;
+                    if (rects.at(r).y < 0)
+                        rects.at(r).y = 0;
+                    if (rects.at(r).height + rects.at(r).y >= map.rows)
+                        rects.at(r).height = map.rows - rects.at(r).y;
+
+                    rois.push_back(rects.at(r));
+                }
+            }
+        }
+    }
+}
+
+
+void BlobProcessor::deserializeContours(std::string filename, std::vector<std::vector<cv::Point> > &contours)
 {
     std::ifstream file (filename.c_str());
     std::string line;
@@ -103,6 +173,58 @@ void BlobProcessor::deserializeFileToContours(std::string filename, std::vector<
     file.close();
 }
 
+
+double euclidianDistance(cv::Point a, cv::Point b) {
+    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+}
+
+int PREDICATE_PARAM = 0;
+bool PredicateFunction2(cv::Point a, cv::Point b){
+    if (euclidianDistance(a, b) < PREDICATE_PARAM)
+        return true;
+    else
+        return false;
+}
+
+void BlobProcessor::cutRoi(std::vector<cv::Point> contour, std::vector<cv::Rect>& clusters) {
+    std::vector<cv::Point> hull;
+    PREDICATE_PARAM = 10;
+    cv::convexHull(contour, hull);
+    std::vector<int> labels;
+    int totalLabels = cv::partition(hull, labels, PredicateFunction2);
+    std::vector<cv::Rect> smallClusters = getRectsFromLabeledPoints(totalLabels, labels, hull);
+    clusters = smallClusters;
+    int med = 0;
+    int total = 0;
+    for (size_t i = 0; i < smallClusters.size(); ++i) {
+        cv::Point c1 = (smallClusters.at(i).br() + smallClusters.at(i).tl()) * 0.5;
+        for (size_t j = 0; j < smallClusters.size(); ++j) {
+            if (i != j) {
+                cv::Point c2 = (smallClusters.at(j).br() + smallClusters.at(j).tl()) * 0.5;
+                med += static_cast<int> (euclidianDistance(c1, c2));
+                total++;
+            }
+        }
+    }
+    if (total == 0)
+        return;
+    PREDICATE_PARAM = med / total;
+    totalLabels = cv::partition(hull, labels, PredicateFunction2);
+    clusters = getRectsFromLabeledPoints(totalLabels, labels, hull);
+}
+
+std::vector<cv::Rect> BlobProcessor::getRectsFromLabeledPoints(int totalLabels, std::vector<int> labels, std::vector<cv::Point> points) {
+    std::vector<std::vector<cv::Point> > clustersPoints = std::vector<std::vector<cv::Point> >(totalLabels);
+    std::vector<cv::Rect> clusters;
+    for (size_t i = 0; i < labels.size(); ++i) {
+        clustersPoints.at(labels.at(i)).push_back(points.at(i));
+    }
+    for (size_t i = 0; i < clustersPoints.size(); ++i) {
+        clusters.push_back(cv::boundingRect(clustersPoints.at(i)));
+    }
+    return clusters;
+}
+
 void BlobProcessor::serializeContour(std::string filename, std::vector<cv::Point> contour)
 {
     std::ofstream file;
@@ -119,73 +241,15 @@ void BlobProcessor::serializeContour(std::string filename, std::vector<cv::Point
     file.close();
 }
 
-std::vector<cv::Point> BlobProcessor::getMaxContour(std::vector<std::vector<cv::Point> > contours) {
-    int max = 0;
-    size_t max_i = 0;
-    for (size_t i = 0; i < contours.size(); ++i) {
-        if (cv::contourArea(contours.at(i)) > max) {
-            max = cv::contourArea(contours.at(i));
-            max_i = i;
-        }
-    }
-    return contours.at(max_i);
+cv::Point BlobProcessor::getCenterOfMasses(std::vector<cv::Point> contour) {
+    cv::Moments moments = cv::moments(contour);
+    return cv::Point(moments.m10 / moments.m00, moments.m01 / moments.m00);
 }
 
-std::vector<cv::Point> BlobProcessor::getCommonContour(std::vector<std::vector<cv::Point> > bigger, std::vector<std::vector<cv::Point> > smaller)
-{
-    if (smaller.size() == 0)
-        return getMaxContour(bigger);
-    if (bigger.size() == 0)
-        return getMaxContour(smaller);
-    size_t smallestI = 0, smallestJ = 0;
-    double min = 10e30;
-    for (size_t i = 0; i < bigger.size(); ++i) {
-        for (size_t j = 0; j < smaller.size(); ++j) {
-            double similarity = cv::matchShapes(bigger.at(i), smaller.at(j), CV_CONTOURS_MATCH_I3, 0);
-            if (similarity < min) {
-                min = similarity;
-                smallestI = i;
-                smallestJ = j;
-            }
-        }
-    }
-    //std::cout << "smallest similarity = " << min << std::endl;
-    //std::cout << "i = " << smallestI << " j = " << smallestJ << std::endl;
-    if (cv::contourArea(bigger.at(smallestI)) >= cv::contourArea(smaller.at(smallestJ)))
-        return bigger.at(smallestI);
-    else
-        return smaller.at(smallestJ);
-}
-
-void BlobProcessor::getContoursFromRoi(cv::Mat dispInput, cv::Mat skinMap, cv::Rect rect, std::vector<cv::Point>& contour) {
-    contour.clear();
-    cv::Mat dispRoi;
-    dispInput.copyTo(dispRoi);
-    dispRoi = dispRoi(rect);
-
-    cv::Mat skinRoi;
-    skinMap.copyTo(skinRoi);
-    skinRoi = skinRoi(rect);
-
-    std::vector<std::vector<cv::Point> > skinC, dispC;
-    cv::findContours(dispRoi, dispC, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-    cv::findContours(skinRoi, skinC, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
-    if (skinC.size() != 0 && dispC.size() != 0) {
-        if (skinC.size() >= dispC.size())
-            contour = getCommonContour(skinC, dispC);
-        else
-            contour = getCommonContour(dispC, skinC);
-    }
-}
-
-void BlobProcessor::trainClassifier(cv::Mat dispInput, cv::Mat skinMap, cv::Rect rect, std::vector<cv::Point>& contour) {
-
-}
-
-void BlobProcessor::getContours(cv::Mat input, std::vector<std::vector<cv::Point> > &contours) {
+void BlobProcessor::getContours(cv::Mat input, std::vector<std::vector<cv::Point> > &contours, int method ,cv::Point offset) {
     cv::Mat buf;
     input.copyTo(buf);
-    cv::findContours(buf, contours, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+    cv::findContours(buf, contours, method, CV_CHAIN_APPROX_SIMPLE, offset);
 }
 
 void BlobProcessor::getRects(cv::Mat input, std::vector<cv::Rect>& rects) {
@@ -198,55 +262,14 @@ void BlobProcessor::getRects(cv::Mat input, std::vector<cv::Rect>& rects) {
     }
 }
 
-void BlobProcessor::getMask(cv::Mat input, cv::Mat& mask) {
-    std::vector<cv::Rect> rects = std::vector<cv::Rect>();
-    getRects(input, rects);
-    mask = cv::Mat(input.size(), CV_8UC1);
-    for (size_t i = 0; i < rects.size(); ++i) {
-        cv::rectangle(mask, rects.at(i), cv::Scalar(255), -1);
+void BlobProcessor::MedianFilter(cv::Mat input, cv::Mat &output, size_t times)
+{
+    cv::Mat mask = input, md;
+    for (size_t i = 0; i < times; ++i) {
+        cv::filter2D(mask, md, CV_32F, this->medianKernel);
+        mask = (md > 100);
     }
-}
-
-bool compareFunction(std::pair<int, int> a, std::pair<int, int> b) { return a.second < b.second; }
-
-void BlobProcessor::GetGoodClusters(cv::Mat input, std::vector<cv::Rect> clusters, std::vector<cv::Rect>& goodClusters) {
-    cv::Mat hsv;
-    cv::cvtColor(input, hsv, CV_BGR2HSV);
-    float PERCENTAGE = 0.4;
-    int AREA_THRESHOLD = 100;
-    std::vector<std::pair<int, int> > clustersValues;
-    ColorFinder finder = ColorFinder();
-    for (size_t i = 0; i < clusters.size(); ++i) {
-        if (clusters.at(i).area() > AREA_THRESHOLD) {
-            cv::Mat roi = hsv(clusters.at(i));
-            std::pair<int, int> pair;
-            pair.first = i;
-            pair.second = finder.getIntervalsCount(roi, 90);
-            clustersValues.push_back(pair);
-        }
-    }
-    std::sort(clustersValues.begin(), clustersValues.end(), compareFunction);
-    int goodClustersCount = clustersValues.size() * PERCENTAGE;
-    int currentGoodClustersValue = 0;
-    for (size_t i = 0; i < goodClustersCount; ++i) {
-        currentGoodClustersValue += clustersValues.at(clustersValues.size() - i - 1).second;
-    }
-    if (goodClustersCount > 0) {
-        currentGoodClustersValue /= goodClustersCount;
-        for (size_t i = clustersValues.size() - 1; i > 0; --i) {
-            if (clustersValues.at(i).second >= currentGoodClustersValue) {
-                goodClusters.push_back(clusters.at(clustersValues.at(i).first));
-            }
-        }
-    }
-}
-
-void BlobProcessor::RecognizeClusters(cv::Mat input, std::vector<cv::Rect> clusters) {
-    cv::cvtColor(input, input, CV_BGR2GRAY);
-    cv::Mat output;
-    DispMap(input, output, 5);
-    cv::imshow("contour", output);
-
+    output = mask;
 }
 
 

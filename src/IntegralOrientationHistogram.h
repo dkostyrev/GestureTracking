@@ -10,7 +10,8 @@ class IntegralOrientationHistogram
 		IntegralOrientationHistogram();
 		IntegralOrientationHistogram(int sectors, unsigned char *data, int w, int h, int threshold);
 		IntegralOrientationHistogram(int sectors, integramOrientationHistogramFilterType filterType, unsigned char *data, int w, int h, int threshold);
-		IntegralOrientationHistogram(int sectors, integramOrientationHistogramFilterType filterType, cv::Mat src, cv::Rect roirect, int threshold);
+		IntegralOrientationHistogram(int sectors, integramOrientationHistogramFilterType filterType, cv::Mat src, int threshold);
+        IntegralOrientationHistogram(int sectors, integramOrientationHistogramFilterType filterType, cv::Mat src, cv::Rect roi, int threshold);
 		IntegralOrientationHistogram(int sectors, integramOrientationHistogramFilterType filterType, cv::Mat *roi, int w, int h, int threshold);
 		IntegralOrientationHistogram(std::vector<sector> histogram, bool compareOnly = true);
         IntegralOrientationHistogram(std::vector<std::vector<sector> > histograms);
