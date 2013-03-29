@@ -4,7 +4,6 @@ int channels[] = { 0 };
 int histsize[] = { 45 };
 float hranges[] = { 0, 180 };
 const float* ranges[] = { hranges };
-const int delta = 3;
 cv::Point maxloc;
 int elementsPerBar;
 ColorFinder::ColorFinder(void) {
@@ -13,12 +12,12 @@ ColorFinder::ColorFinder(void) {
 	elementsPerBar = hranges[1] / histsize[0];
 }
 //--------------------------------------------------------------
-void ColorFinder::find(cv::Scalar& lowBound, cv::Scalar& highBound, int channel, cv::Mat &mat, int bars /*= 90*/ , bool overlap)
+void ColorFinder::find(cv::Scalar& lowBound, cv::Scalar& highBound, int channel, cv::Mat &mat, int delta, int bars /*= 90*/ , bool overlap)
 {
 	histsize[0] = bars;
     channels[0] = channel;
 	elementsPerBar = hranges[1] / histsize[0];
-    cv::split(mat, matPlanes);
+    //cv::split(mat, matPlanes);
     cv::calcHist(&mat, 1, channels, cv::Mat(), histogram, 1, histsize, ranges, true, false);
 	cv::normalize(histogram, histogram);
 	cv::minMaxLoc(histogram, 0, 0, 0, &maxloc, cv::Mat());

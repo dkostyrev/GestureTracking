@@ -116,15 +116,19 @@ void BlobGetter::AdaptColourThresholds(cv::Mat input, cv::Rect roi)
     cv::Mat ycrcb;
     ResetColourThresholds();
     cv::cvtColor(input, ycrcb, CV_BGR2YCrCb);
+    ycrcb = ycrcb(roi);
     ColorFinder finder = ColorFinder();
-    finder.find(adaptLow, adaptHigh, 1, ycrcb);
-    finder.find(adaptLow, adaptHigh, 2, ycrcb);
+    finder.find(adaptLow, adaptHigh, 1, ycrcb, 40);
+    finder.find(adaptLow, adaptHigh, 2, ycrcb, 40);
+    std::cout << adaptLow.val[0] << "< y  <" << adaptHigh[0] << std::endl;
+    std::cout << adaptLow.val[1] << "< cr  <" << adaptHigh[1] << std::endl;
+    std::cout << adaptLow.val[2] << "< cb  <" << adaptHigh[2] << std::endl;
     this->isThresholdsAdapted = true;
 }
 
 void BlobGetter::ResetColourThresholds()
 {
-    this->adaptLow = cv::Scalar(20, 0, 0);
-    this->adaptHigh = cv::Scalar(140, 0, 0);
+    this->adaptLow = defaultLow;
+    this->adaptHigh = defaultHigh;
     this->isThresholdsAdapted = false;
 }

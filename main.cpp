@@ -23,12 +23,26 @@ int main()
     //cap.open("C:\\Projects\\GestureTracking\\SampleVideos\\good_brightness_clips\\open_palm_shown_c.avi");
     //cap.open("C:\\Projects\\GestureTracking\\SampleVideos\\medium_brightness_clips\\pan_c.avi");
     //cap.open("D:\\Dropbox\\GestureTrackingSampleVideos\\open_palm_shown_c.avi");
+
+
     cv::Mat frame, skinMap, foregroundMap;
     BlobGetter blobGetter = BlobGetter(TIMEDISPERSION);
     BlobProcessor blobProcessor = BlobProcessor();
     Mode mode = SKIN;
-    while (cap.read(frame)){
+    while (cap.read(frame)) {
+        cv::CascadeClassifier classifier = cv::CascadeClassifier("C:\\Projects\\GestureTracking\\xml\\palm.xml");
+        std::vector<cv::Rect> rects;
+        classifier.detectMultiScale(frame, rects, 1.1, 3, 0, cv::Size(50, 50), cv::Size());
+        for (size_t i = 0; i < rects.size(); ++i) {
+            cv::rectangle(frame, rects.at(i), cv::Scalar(0, 255, 0));
+        }
+
+        cv::imshow("frame", frame);
+
         blobGetter.Process(frame, skinMap, foregroundMap);
+        //cv::imshow("skin", skinMap);
+
+        /*blobGetter.Process(frame, skinMap, foregroundMap);
         cv::imshow("skinmap", skinMap);
         blobProcessor.Process(frame, skinMap, foregroundMap);
         cv::imshow("Frame", frame);
@@ -43,7 +57,7 @@ int main()
             case COMBINATION:
                 throw("Not implemented yet");
         }
-
+        */
         int key = cv::waitKey(1);
         switch (key){
             case 27:
@@ -57,6 +71,7 @@ int main()
                 std::cout << "Selected mode = FOREGROUND" << std::endl;
                 break;
         }
+
     }
     return 0;
 }

@@ -4,7 +4,7 @@ class ColorFinder {
 	public:
 		ColorFinder(void);
         int getIntervalsCount(cv::Mat &hsv, int bars);
-        void find(cv::Scalar& lowBound, cv::Scalar& highBound, int channel, cv::Mat &mat, int bars = 90, bool overlap = false);
+        void find(cv::Scalar& lowBound, cv::Scalar& highBound, int channel, cv::Mat &mat, int delta = 5, int bars = 90, bool overlap = false);
 		void plot();
 		cv::Mat getPlottedMat() { return plottedMat; }
         ~ColorFinder();
