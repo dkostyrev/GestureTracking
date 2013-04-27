@@ -1,6 +1,7 @@
 #pragma once
 #include "opencv2/opencv.hpp"
-enum integramOrientationHistogramFilterType {INTEGRAL_ORIENTATION_HISTOGRAM_SOBEL,INTEGRAL_ORIENTATION_HISTOGRAM_SCHARR};
+enum integramOrientationHistogramFilterType
+{INTEGRAL_ORIENTATION_HISTOGRAM_SOBEL,INTEGRAL_ORIENTATION_HISTOGRAM_SCHARR};
 struct sector {
 	float angle; double value;
 };

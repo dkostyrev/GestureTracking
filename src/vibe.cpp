@@ -60,5 +60,5 @@ void ViBe::Process(cv::Mat image, cv::Mat& segMap)
 
 int ViBe::EuclidianDistance(uchar a, uchar b)
 {
-    return sqrt(pow(a-b, 2));
+	return sqrt(std::pow(static_cast<float>(a - b), static_cast<float>(2)));
 }

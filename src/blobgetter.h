@@ -5,7 +5,7 @@
 #include "vibe.h"
 #include "ColorFinder.h"
 enum BackgroudSubstractionTechique {
-    TIMEDISPERSION, VIBE, MOG, NONE
+    TIMEDISPERSION, VIBE, MOG, NO
 };
 
 class BlobGetter
@@ -16,6 +16,8 @@ public:
     void FilterBySize(cv::Mat rawSkinMap, cv::Mat &skinMap);
     void AdaptColourThresholds(cv::Mat input, cv::Rect roi);
     void ResetColourThresholds();
+    void DispMap(cv::Mat input, cv::Mat &output, int threshold);
+    void getForegroundMap(cv::Mat input, cv::Mat &output);
 private:
     cv::Scalar defaultLow, defaultHigh, adaptLow, adaptHigh;
     bool isThresholdsAdapted;

@@ -15,17 +15,21 @@ void BlobGetter::Process(cv::Mat input, cv::Mat &skinMap, cv::Mat &foregroundMap
     GetSkinRegionMap(input, skinMap);
     //FilterBySize(skinMap, skinMap);
     MedianFilter(skinMap, skinMap, 1);
+    getForegroundMap(input, foregroundMap);
+}
+
+void BlobGetter::getForegroundMap(cv::Mat input, cv::Mat& output) {
     cv::cvtColor(input, input, CV_BGR2GRAY);
     if (isFirstFrame){
-        foregroundMap = cv::Mat(input.rows, input.cols, CV_8UC1);
+        output = cv::Mat(input.size(), CV_8UC1);
         InitializeBackgroundSubtractor(input);
         isFirstFrame = false;
     }
     else {
-        GetForegroundMap(input, foregroundMap);
-        MedianFilter(foregroundMap, foregroundMap, 2);
+        GetForegroundMap(input, output);
+        if (!output.empty())
+            MedianFilter(output, output, 2);
     }
-
 }
 
 void BlobGetter::FilterBySize(cv::Mat rawSkinMap, cv::Mat& skinMap)
@@ -61,7 +65,7 @@ void BlobGetter::InitializeBackgroundSubtractor(cv::Mat firstFrame)
             mog2 = cv::BackgroundSubtractorMOG2(3, 100, true);
             break;
         }
-        case NONE : {
+        case NO : {
             return;
         }
     }
@@ -83,7 +87,7 @@ void BlobGetter::GetForegroundMap(cv::Mat input, cv::Mat& foregroundMap)
         case MOG: {
             mog2(input, foregroundMap, 0);
         }
-        case NONE : {
+        case NO : {
             foregroundMap = cv::Mat(input.size(), CV_8UC1);
         }
     }
@@ -111,15 +115,37 @@ void BlobGetter::MedianFilter(cv::Mat input, cv::Mat &output, size_t times)
     output = mask;
 }
 
+void BlobGetter::DispMap(cv::Mat input, cv::Mat &output, int threshold)
+{
+    cv::cvtColor(input, input, CV_BGR2GRAY);
+    input.convertTo(input, CV_32F);
+    cv::Mat md, sqmd, mdsq, sq;
+    cv::Mat k = (cv::Mat_<float>(3,3) << 1./9, 1./9, 1./9, 1./9, 1./9, 1./9, 1./9, 1./9, 1./9);
+    cv::filter2D(input, md, CV_32F, k);
+    cv::pow(input, 2, sq);
+    cv::pow(md, 2, sqmd);
+    cv::filter2D(sq, mdsq, CV_32F, k);
+    output= mdsq - sqmd;
+    output = (output >= threshold * threshold);
+    //MedianFilter(output, output, 1);
+}
+
 void BlobGetter::AdaptColourThresholds(cv::Mat input, cv::Rect roi)
 {
-    cv::Mat ycrcb;
+    cv::Mat ycrcb, crPlot, cbPlot;
     ResetColourThresholds();
     cv::cvtColor(input, ycrcb, CV_BGR2YCrCb);
     ycrcb = ycrcb(roi);
+    cv::imshow("roi",ycrcb);
     ColorFinder finder = ColorFinder();
-    finder.find(adaptLow, adaptHigh, 1, ycrcb, 40);
-    finder.find(adaptLow, adaptHigh, 2, ycrcb, 40);
+    finder.find(adaptLow, adaptHigh, 1, ycrcb, 10);
+    finder.plot();
+    crPlot = finder.getPlottedMat();
+    cv::imshow("crPlot", crPlot);
+    finder.find(adaptLow, adaptHigh, 2, ycrcb, 10);
+    finder.plot();
+    cbPlot = finder.getPlottedMat();
+    cv::imshow("cbPlot", cbPlot);
     std::cout << adaptLow.val[0] << "< y  <" << adaptHigh[0] << std::endl;
     std::cout << adaptLow.val[1] << "< cr  <" << adaptHigh[1] << std::endl;
     std::cout << adaptLow.val[2] << "< cb  <" << adaptHigh[2] << std::endl;

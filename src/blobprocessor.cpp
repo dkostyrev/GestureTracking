@@ -1,93 +1,38 @@
 #include "blobprocessor.h"
 
-BlobProcessor::BlobProcessor()
-{
-    deserializeContours("open_palm.txt", trainContours);
-    classifier = Classifier();
-    trainInProgress = false;
-    this->medianKernel = cv::Mat(9, 9, CV_32F);
-    this->medianKernel.setTo(cv::Scalar(1./81));
+BlobProcessor::BlobProcessor() {}
 
-}
-std::vector<cv::Point> trainContours;
-void BlobProcessor::Process(cv::Mat input, cv::Mat skinMap, cv::Mat foregroundMap)
-{
-    cv::Mat dispMap, buf = cv::Mat(input.size(), CV_8UC3);
-    buf.setTo(cv::Scalar(0,0,0));
-    std::vector<cv::Rect> rois;
-
-    cv::cvtColor(input, dispMap, CV_BGR2GRAY);
-    DispMap(dispMap, dispMap, 4);
-    MedianFilter(dispMap, dispMap, 1);
-    std::vector<std::vector<cv::Point> > dispContours, goodContours;
-    getContours(dispMap, dispContours, CV_RETR_LIST);
-    for (size_t i = 0; i < dispContours.size(); ++i) {
-        if (cv::contourArea(dispContours.at(i)) > 150) {
-            goodContours.push_back(dispContours.at(i));
-        }
-    }
-    dispMap.setTo(cv::Scalar(0));
-    cv::drawContours(dispMap, goodContours, -1, cv::Scalar(255));
-
-    getCuttedRoisFromMap(skinMap, rois, 10);
-    std::vector<std::vector<cv::Point> > contours;
-    int key = cv::waitKey(1);
-    if (key == (int) 't') {
-        trainInProgress = true;
-        trainProcedure(skinMap, rois);
-    }
-    for (size_t i = 0; i < rois.size(); ++i) {
-        std::vector<cv::Point> contour = getMaxContourFromRoi(skinMap, rois.at(i));
-        cv::rectangle(buf, rois.at(i), cv::Scalar(255, 0, 0));
-        contours.clear();
-        contours.push_back(contour);
-        cv::drawContours(buf, contours, 0, cv::Scalar(255, 0, 0));
-        if (classifier.GetTrainSetSize() > 0 && !trainInProgress) {
-            int label = classifier.Recognize(contour);
-            if (label > 0) {
-                cv::rectangle(buf, rois.at(i), cv::Scalar(0, 255, 0));
-            }
-        }
-    }
-    //cv::imshow("result contours", buf);
-    //cv::imshow("time disp", foregroundMap);
-    cv::imshow("disp", dispMap);
-}
-
-void BlobProcessor::trainProcedure(cv::Mat map, std::vector<cv::Rect> rois) {
-    std::vector<cv::Point> contour;
-    std::vector<std::vector<cv::Point> > contours;
+void BlobProcessor::trainProcedure(Classifier &classifier, cv::Mat map, std::vector<std::vector<cv::Point> > contours) {
     cv::Mat buf = cv::Mat(map.size(), CV_8UC3);
+    std::vector<std::vector<cv::Point> > drawContours;
     while (true) {
-        for (size_t i = 0; i < rois.size(); ++i) {
-            contour = getMaxContourFromRoi(map, rois.at(i));
-            contours.clear();
-            contours.push_back(contour);
+        for (size_t i = 0; i < contours.size(); ++i) {
+            drawContours.clear();
+            drawContours.push_back(contours.at(i));
             buf.setTo(cv::Scalar(0, 0, 0));
-            cv::rectangle(buf, rois.at(i), cv::Scalar(255, 0, 0));
-            cv::drawContours(buf, contours, 0, cv::Scalar(255, 0, 0));
-            cv::imshow("classify contour", buf);
+            cv::drawContours(buf, drawContours, 0, cv::Scalar(255, 0, 0));
+            cv::imshow("classify contours", buf);
             int key = cv::waitKey(0);
             switch (key) {
                 case int('0'):
                     std::cout << "classified as 0 class" << std::endl;
-                    classifier.AddToTrainSet(contour, 0);
+                    classifier.AddToTrainSet(map.size(), contours.at(i), 0);
                     break;
                 case int('1'):
                     std::cout << "classified as 1 class" << std::endl;
-                    classifier.AddToTrainSet(contour, 1);
+                    classifier.AddToTrainSet(map.size(), contours.at(i), 1);
                     break;
                 case int('2'):
                     std::cout << "classified as 2 class" << std::endl;
-                    classifier.AddToTrainSet(contour, 2);
+                    classifier.AddToTrainSet(map.size(), contours.at(i), 2);
                     break;
                 case int('3'):
                     std::cout << "classified as 3 class" << std::endl;
-                    classifier.AddToTrainSet(contour, 3);
+                    classifier.AddToTrainSet(map.size(), contours.at(i), 3);
                     break;
                 case int ('e'):
                     std::cout << "end of classification" << std::endl;
-                    classifier.Train();
+                    classifier.Train(true);
                     trainInProgress = false;
                     return;
                     break;
@@ -100,17 +45,173 @@ void BlobProcessor::trainProcedure(cv::Mat map, std::vector<cv::Rect> rois) {
     }
 }
 
-std::vector<cv::Point> BlobProcessor::getMaxContourFromRoi(cv::Mat map, cv::Rect roi) {
+/*
+ * Copyright by  Nikolas Markou
+ * original C# version from:
+ * http://nmarkou.blogspot.ru/2012/03/contour-refinement.html
+ */
+
+void BlobProcessor::contourRefine(std::vector<cv::Point> contour, cv::Mat blobMask, std::vector<cv::Point>& refinedContour) {
+    int normalOffset = 5;
+    float featureThreshold = 10e100;
+    float inertiaCoeff = 1.1;
+    float multiplierCoeff = -1;
+    std::vector<cv::Point> points;
+    for (size_t i = 0; i < contour.size(); ++i) {
+        int totalPoints = contour.size(),
+            ki = (i + 1) % totalPoints,
+            ik = (i >= 1) ? (i - 1) : (totalPoints - 1 + 1) % totalPoints;
+        cv::Point current = contour.at(i),
+                  next = contour.at(ki),
+                  prev = contour.at(ik);
+        cv::Point2f normalOut = normalAtPoint(prev, current, next, false),
+                    normalIn = normalAtPoint(prev, current, next, true);
+        cv::Point out = cv::Point(static_cast<int>(floor(normalOut.x * normalOffset)) + current.x,
+                                  static_cast<int>(floor(normalOut.y * normalOffset)) + current.y),
+                  in = cv::Point(static_cast<int>(floor(normalIn.x * normalOffset)) + current.x,
+                                  static_cast<int>(floor(normalIn.y * normalOffset)) + current.y);
+        std::vector<uchar> sampleIn = sampleLine(blobMask, current, in);
+        std::vector<uchar> sampleOut = sampleLine(blobMask, current, out);
+        float max = 0, sample = 0;
+        int j = 0;
+        bool inOut = true;
+        for (size_t i = 0; i < sampleOut.size(); ++i) {
+            sample = static_cast<float>(sampleOut.at(i)) + multiplierCoeff * static_cast<float>(pow(inertiaCoeff, static_cast<float>(i)));
+            if (sample > max) {
+                max = sample;
+                j = i;
+                inOut = false;
+            }
+        }
+        std::cout << max << std::endl;
+        for (size_t i = 0; i < sampleIn.size(); ++i) {
+            sample = static_cast<float>(sampleIn.at(i)) + multiplierCoeff * static_cast<float>(pow(inertiaCoeff, static_cast<float>(i)));
+            if (sample > max) {
+                max = sample;
+                j = i;
+                inOut = true;
+            }
+        }
+        if (max >= featureThreshold) {
+            int x,y;
+            double length, xlength, ylength;
+            if (!inOut) {
+                xlength = current.x - out.x;
+                ylength = current.y - out.y;
+                //length = sqrt(pow(xlength, 2) + pow(ylength, 2));
+                x = static_cast<int>(floor(static_cast<float>(j) / sampleOut.size() * out.x * normalOffset));
+                y = static_cast<int>(floor(static_cast<float>(j) / sampleOut.size() * out.y * normalOffset));
+            } else {
+                xlength = current.x - in.x;
+                ylength = current.y - in.y;
+                //length = sqrt(pow(xlength, 2) + pow(ylength, 2));
+                x = static_cast<int>(floor(static_cast<float>(j) / sampleIn.size() * in.x * normalOffset));
+                y = static_cast<int>(floor(static_cast<float>(j) / sampleIn.size() * in.y * normalOffset));
+            }
+            points.push_back(cv::Point(current.x + x, current.y + y));
+        }
+    }
+    refinedContour.clear();
+    std::cout << "points" << points.size() << std::endl;
+    refinedContour.insert(refinedContour.begin(), points.begin(), points.end());
+}
+
+void BlobProcessor::filterContours(std::vector<std::vector<cv::Point> > contours, std::vector<std::vector<cv::Point> > filtered)
+{
+    std::vector<std::vector<cv::Point> > buf;
+    for (size_t i = 0; i < contours.size(); ++i) {
+        if (cv::contourArea(contours.at(i)) > 100)
+            buf.push_back(contours.at(i));
+    }
+    filtered.clear();
+    filtered.insert(filtered.begin(), buf.begin(), buf.end());
+}
+
+std::vector<uchar> BlobProcessor::sampleLine(cv::Mat mat, cv::Point p1, cv::Point p2) {
+    cv::LineIterator iterator = cv::LineIterator(mat, p1, p2);
+    std::vector<uchar> sample;
+    for (size_t i = 0; i < iterator.count; ++i) {
+        sample.push_back(*iterator.ptr);
+        iterator++;
+    }
+    return sample;
+}
+
+
+/*
+ * Copyright by  Nikolas Markou
+ * original C# version from:
+ * http://nmarkou.blogspot.ru/2012/03/contour-refinement.html
+ */
+
+cv::Point2f BlobProcessor::normalAtPoint(cv::Point prev, cv::Point current, cv::Point next, bool inOut) {
+    cv::Point2f normal;
+    float dx1 = current.x - prev.x,
+          dx2 = next.x - current.x,
+          dy1 = current.y - prev.y,
+          dy2 = next.y - current.y;
+    if (inOut)
+        normal = cv::Point((dy1 + dy2) * 0.5f, -(dx1 + dx2) * 0.5f);
+    else
+        normal = cv::Point(-(dy1 + dy2) * 0.5f, (dx1 + dx2) * 0.5f);
+    return normalizePoint(normal);
+}
+
+/*
+ * Copyright by  Nikolas Markou
+ * original C# version from:
+ * http://nmarkou.blogspot.ru/2012/03/contour-refinement.html
+ */
+
+cv::Point2f BlobProcessor::normalizePoint(cv::Point2f point) {
+    float length = static_cast<float>(sqrt(point.x * point.x + point.y * point.y));
+    if (length > 0.0f)
+        return cv::Point2f(point.x / length, point.y / length);
+    return cv::Point2f(0.0f, 0.0f);
+}
+
+void BlobProcessor::resizeRegions(std::vector<cv::Rect> regions, cv::Size frameSize, size_t delta_x, size_t delta_y,std::vector<cv::Rect>& resized) {
+    resized.clear();
+    for (size_t r = 0; r < regions.size(); ++r) {
+        if (regions.at(r).area() > 100) {
+            regions.at(r).x -= delta_x / 2;
+            regions.at(r).width += delta_x;
+            regions.at(r).y -= delta_y / 2;
+            regions.at(r).height += delta_y;
+            if (regions.at(r).x < 0)
+                regions.at(r).x = 0;
+            if (regions.at(r).width + regions.at(r).x >= frameSize.width)
+                regions.at(r).width = frameSize.width - regions.at(r).x;
+            if (regions.at(r).y < 0)
+                regions.at(r).y = 0;
+            if (regions.at(r).height + regions.at(r).y >= frameSize.height)
+                regions.at(r).height = frameSize.height - regions.at(r).y;
+            resized.push_back(regions.at(r));
+        }
+    }
+}
+
+std::vector<cv::Point> BlobProcessor::getMaxContour(cv::Mat map, cv::Point offset) {
     std::vector<std::vector<cv::Point> > contours;
-    size_t maxI = -1; int maxArea = 0;
-    getContours(map(roi), contours, CV_RETR_EXTERNAL, roi.tl());
+    int maxI = -1, maxArea = 0, currentArea = 0, maxAllowed = map.cols * map.rows * 0.9;
+    getContours(map, contours, CV_RETR_EXTERNAL, offset);
     for (size_t c = 0; c < contours.size(); ++c) {
-        if (cv::contourArea(contours.at(c)) > maxArea) {
+        currentArea = cv::contourArea(contours.at(c));
+        if (currentArea > maxArea && currentArea < maxAllowed) {
             maxArea = cv::contourArea(contours.at(c));
             maxI = c;
         }
     }
-    return contours.at(maxI);
+    if (contours.size() == 1 || (contours.size() > 0 && maxI == -1)) {
+        return contours.at(0);
+    }
+    else {
+        return contours.at(maxI);
+    }
+}
+
+std::vector<cv::Point> BlobProcessor::getMaxContourFromRoi(cv::Mat map, cv::Rect roi) {
+    return getMaxContour(map(roi), roi.tl());
 }
 
 void BlobProcessor::getCuttedRoisFromMap(cv::Mat map, std::vector<cv::Rect> & rois, int extra) {
@@ -175,7 +276,7 @@ void BlobProcessor::deserializeContours(std::string filename, std::vector<std::v
 
 
 double euclidianDistance(cv::Point a, cv::Point b) {
-    return sqrt(pow(a.x - b.x, 2) + pow(a.y - b.y, 2));
+    return sqrt(pow(static_cast<float>(a.x - b.x), 2.0f) + pow(static_cast<float>(a.y - b.y), 2.0f));
 }
 
 int PREDICATE_PARAM = 0;
@@ -246,6 +347,88 @@ cv::Point BlobProcessor::getCenterOfMasses(std::vector<cv::Point> contour) {
     return cv::Point(moments.m10 / moments.m00, moments.m01 / moments.m00);
 }
 
+bool checkPoint(cv::Point p1, cv::Point p2, cv::Mat mat) {
+    if (abs(mat.at<uchar>(p1) - mat.at<uchar>(p2)) <= 10)
+        return true;
+    else
+        return false;
+}
+
+void BlobProcessor::checkTopBottom(bool &bottom, bool &top, cv::Mat hsv, cv::Point point, std::vector<cv::Point> &points, int x)
+{
+    if (!top && point.y - 1 > 0 && checkPoint(cv::Point(x, point.y - 1), point, hsv)) {
+        top = true;
+        points.push_back(cv::Point(x, point.y - 1));
+    }
+    if (top && point.y - 1 > 0 && !checkPoint(cv::Point(x, point.y - 1), point, hsv)) {
+        top = false;
+    }
+    if (!bottom && point.y + 1 < hsv.rows && checkPoint(cv::Point(x, point.y + 1), point, hsv)) {
+        bottom = true;
+        points.push_back(cv::Point(x, point.y + 1));
+    }
+    if (bottom && point.y + 1 < hsv.rows && !checkPoint(cv::Point(x, point.y + 1), point, hsv)) {
+        bottom = false;
+    }
+}
+/*
+void BlobProcessor::growRegions(cv::Mat input, cv::Rect roi, cv::Mat &regions) {
+    cv::Mat hsv;
+    std::vector<cv::Mat> planes;
+    input(roi).copyTo(hsv);
+    cv::cvtColor(hsv, hsv, CV_BGR2HSV);
+    cv::split(hsv, planes);
+    hsv = planes[0];
+    cv::Point start = cv::Point(hsv.cols / 2, hsv.rows / 2);
+    bool top = false, bottom = false;
+    std::vector<cv::Point> points;
+    points.push_back(start);
+    std::vector<cv::Point> contour;
+    while (points.size() > 0) {
+        cv::Point point = points.at(0);
+        points.erase(points.begin());
+        int x = point.x - 1;
+        while (x > 0 && checkPoint(cv::Point(x, point.y), point, hsv)) {
+            x --;
+            checkTopBottom(bottom, top, hsv, point, points, x);
+        }
+        contour.push_back(cv::Point(x, point.y));
+        x = point.x + 1;
+        while (x < hsv.cols && checkPoint(cv::Point(x, point.y), point, hsv)) {
+            x ++;
+            checkTopBottom(bottom, top, hsv, point, points, x);
+        }
+        contour.push_back(cv::Point(x, point.y));
+        std::cout << points.size() << std::endl;
+    }
+    std::cout << contour.size() << std::endl;
+}
+*/
+void BlobProcessor::growRegions(bool useGray, cv::Mat input, cv::Point start, std::vector<cv::Point> &contour) {
+/*    if (useGray) {
+        cv::Mat gray;
+        cv::cvtColor(input, gray, CV_BGR2GRAY);
+        cv::floodFill(gray, start, cv::Scalar(255), 0, cv::Scalar(30), cv::Scalar(30), cv::FLOODFILL_FIXED_RANGE);
+        cv::threshold(gray, gray, 254, 255, CV_THRESH_BINARY);
+        //cv::imshow("gray", gray);
+        contour = getMaxContour(gray(roi), roi.tl());
+        //contour = getMaxContour(gray, roi.tl());
+    } else {
+        cv::Mat ycrcb;
+        cv::cvtColor(input, ycrcb, CV_BGR2YCrCb);
+        std::vector<cv::Mat> channels;
+        cv::split(ycrcb, channels);
+        cv::floodFill(channels.[1], start, cv::Scalar(255), 0, cv::Scalar(30), cv::Scalar(30), cv::FLOODFILL_FIXED_RANGE);
+
+    }
+*/
+}
+
+void BlobProcessor::growRegions(bool useGray, cv::Mat input, cv::Rect roi, std::vector<cv::Point> &contour) {
+    growRegions(useGray, input, cv::Point(roi.width / 2, roi.height * 0.8), contour);
+}
+
+
 void BlobProcessor::getContours(cv::Mat input, std::vector<std::vector<cv::Point> > &contours, int method ,cv::Point offset) {
     cv::Mat buf;
     input.copyTo(buf);
@@ -260,30 +443,6 @@ void BlobProcessor::getRects(cv::Mat input, std::vector<cv::Rect>& rects) {
     for (size_t i = 0; i < contours.size(); ++i) {
         rects.push_back(cv::boundingRect(contours.at(i)));
     }
-}
-
-void BlobProcessor::MedianFilter(cv::Mat input, cv::Mat &output, size_t times)
-{
-    cv::Mat mask = input, md;
-    for (size_t i = 0; i < times; ++i) {
-        cv::filter2D(mask, md, CV_32F, this->medianKernel);
-        mask = (md > 100);
-    }
-    output = mask;
-}
-
-
-void BlobProcessor::DispMap(cv::Mat input, cv::Mat &output, int threshold)
-{
-    input.convertTo(input, CV_32F);
-    cv::Mat md, sqmd, mdsq, sq;
-    cv::Mat k = (cv::Mat_<float>(3,3) << 1./9, 1./9, 1./9, 1./9, 1./9, 1./9, 1./9, 1./9, 1./9);
-    cv::filter2D(input, md, CV_32F, k);
-    cv::pow(input, 2, sq);
-    cv::pow(md, 2, sqmd);
-    cv::filter2D(sq, mdsq, CV_32F, k);
-    output= mdsq - sqmd;
-    output = (output >= threshold * threshold);
 }
 
 

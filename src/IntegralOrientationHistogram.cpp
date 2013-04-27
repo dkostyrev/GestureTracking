@@ -158,7 +158,7 @@ double IntegralOrientationHistogram::calculateDifference(IntegralOrientationHist
 void IntegralOrientationHistogram::calculate() {
 	initializeHistogram();
 	filter();
-	normalizeHistogram();
+    normalizeHistogram();
 	delete dx;
 	delete dy;
 	delete roi;
@@ -202,14 +202,12 @@ void IntegralOrientationHistogram::addToHistogram(float angle) {
         angle += (CV_PI*2);
 	}
 
-	for (size_t i = 0; i < histogram.size(); i++){
+    for (int i = 0; i < histogram.size(); i++){
 		if (histogram.at(i).angle > angle){
-			if (i-1 < -1){
+            if (i-1 > -1)
 				histogram.at(i-1).value++;
-			}
-			else {
+            else
 				histogram.at(histogram.size()-1).value++;
-			}
 			break;
 		}
 	}
@@ -314,5 +312,6 @@ cv::Mat IntegralOrientationHistogram::convertHistogramVectorToMat()
     for (size_t i = 0; i < this->histogram.size(); ++i){
         result.at<float>(cv::Point(i, 0)) = this->histogram.at(i).value;
     }
+	return result;
 }
 
