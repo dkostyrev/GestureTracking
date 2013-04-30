@@ -5,32 +5,45 @@
 #include "IntegralOrientationHistogram.h"
 #include <iostream>
 #include <fstream>
-struct FeatureVector {
+/*struct FeatureVector {
     int label;
-    double ecc;
-    std::vector<double> moments;
-    std::vector<double> histogram;
+    std::vector<double> u;
+    std::vector<double> v;
     int VECTOR_SIZE;
 };
+struct FeatureVector {
+    int label;
+    std::vector<std::vector<double> > histograms;
+};
+*/
+struct FeatureVector {
+    int label;
+    std::vector<double> a;
+    std::vector<double> b;
+    std::vector<double> c;
+    int VECTOR_SIZE;
+};
+
 class Classifier
 {
 public:
     Classifier();
     Classifier(std::string model);
-    void AddToTrainSet(cv::Size matSize, std::vector<cv::Point> contour, int label);
+    void AddToTrainSet(int label, std::vector<std::vector<double> > histograms);
     void Train(bool save);
-    bool IsLoadedModel();
+    bool IsTrained();
     size_t GetTrainSetSize();
-    int Recognize(std::vector<cv::Point> contour, cv::Size matSize);
-private:
-    bool isLoadedModel;
-    double getEccentricity(std::vector<cv::Point> contour);
+    int Recognize(std::vector<std::vector<double> > histograms);
     void serializeTrainingVectors(std::string filename);
+private:
+    bool isTrained;
+    double getEccentricity(std::vector<cv::Point> contour);
     void deserializeTrainingVectors(std::string filename);
     FeatureVector getFeatures(std::vector<cv::Point> contour, cv::Size matSize);
     std::vector<FeatureVector> trainVectors;
     //cv::NormalBayesClassifier classifier;
     CvANN_MLP classifier;
+
 };
 
 #endif // CLASSIFIER_H

@@ -1,21 +1,21 @@
 #include "blobintegralhistogram.h"
 
-BlobIntegralHistogram::BlobIntegralHistogram(size_t sectors, cv::Mat blobMask)
+BlobIntegralHistogram::BlobIntegralHistogram(size_t sectors, cv::Mat blobMask, cv::Point histCenter)
 {
     this->sectors = sectors;
     this->blobMask = blobMask;
     this->circularHistogram = cv::Mat(400, 400, CV_8UC3);
     this->area = blobMask.rows * blobMask.cols;
+    this->histCenter = histCenter;
     InitializeHistogram();
 }
 //--------------------------------------------------------------
 void BlobIntegralHistogram::Calculate()
 {
-    cv::Point middle = cv::Point(blobMask.cols / 2, blobMask.rows / 2);
     for (int y = 0; y < blobMask.rows; y++){
         for (int x = 0; x < blobMask.cols; x++){
             if (blobMask.at<uchar>(cv::Point(x,y)) > 150){
-                double angle = atan2(middle.y - y, middle.x - x);
+                double angle = atan2(histCenter.y - y, histCenter.x - x);
                 AddToHistogram(angle - (CV_PI / 2));
             }
         }
@@ -44,11 +44,7 @@ void BlobIntegralHistogram::InitializeHistogram()
         current.value = 0;
         current.angle = (2*CV_PI/this->sectors)*i;
         this->histogram.push_back(current);
-        std::cout << current.angle << ", ";
     }
-    std::cout << std::endl;
-
-    this->sectors = this->histogram.size();
 }
 //--------------------------------------------------------------
 void BlobIntegralHistogram::NormalizeHistogram()

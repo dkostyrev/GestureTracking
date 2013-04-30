@@ -19,6 +19,11 @@ void MotionEstimator::ShowAllFrames() {
     }
 }
 
+size_t MotionEstimator::GetFrameCount()
+{
+    return frames.size();
+}
+
 void MotionEstimator::GetMotionMat(cv::Mat &result)
 {
     if (frames.size() > 1) {
@@ -46,22 +51,55 @@ void MotionEstimator::getMotionVector(cv::Mat result, size_t framesSize)
         cv::waitKey(0);
         buf.setTo(cv::Scalar(0));
     }
-
 }
 
 
-void MotionEstimator::calculateMotionHistograms()
+void MotionEstimator::calculateMotionHistograms(std::vector<std::vector<double> >& histograms, bool plot, bool save)
 {
+    std::string dir = "";
+    if (plot && save) {
+        time_t t = time(0);
+        struct tm * now = localtime(&t);
+        std::stringstream str;
+        str << now->tm_hour << "_" << now->tm_min << "_" << now->tm_sec << std::endl;
+        dir = str.str();
+        mkdir(dir.c_str());
+    }
+    BlobProcessor blobProcessor = BlobProcessor();
+    int x = 0;
+    int y = 0;
     for (size_t i = 0; i < frames.size(); ++i) {
-        BlobIntegralHistogram histogram = BlobIntegralHistogram(16, frames.at(i));
+        cv::Point center = blobProcessor.getCenterOfMasses(frames.at(i));
+        x += center.x;
+        y += center.y;
+    }
+    cv::Point histCenter = cv::Point(static_cast<int>(x / frames.size()), static_cast<int>(y / frames.size()));
+    std::cout << "Histogram center = " << histCenter << std::endl;
+    for (size_t i = 0; i < frames.size(); ++i) {
+        BlobIntegralHistogram histogram = BlobIntegralHistogram(16, frames.at(i), histCenter);
         histogram.Calculate();
-        histogram.Plot();
-        cv::Mat hist = histogram.getPlottedMat();
-        for (size_t h = 0; h < histogram.getHistogram().size(); ++h) {
-            std::cout << histogram.getHistogram().at(h).value << ", ";
+        if (plot)
+            histogram.Plot();
+        std::vector<double> currentHist;
+        for (size_t h = 0; h < histogram.histogram.size(); ++h) {
+            currentHist.push_back(histogram.histogram.at(h).value);
+            std::cout << histogram.histogram.at(h).value << " ,";
         }
         std::cout << std::endl;
-        cv::imshow("hist", hist);
-        cv::waitKey(0);
+        histograms.push_back(currentHist);
+        if (plot) {
+            if (save) {
+                std::stringstream str;
+                //str << dir << "_" << i << "_hist.jpeg";
+                str << i << "_hist.jpeg";
+                cv::imwrite(str.str(), histogram.circularHistogram);
+                str.str("");
+                str << i << ".jpeg";
+                cv::imwrite(str.str(), frames.at(i));
+            }
+            cv::imshow("hist", histogram.circularHistogram);
+            cv::waitKey(0);
+        }
     }
+    frames.clear();
 }

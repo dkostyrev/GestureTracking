@@ -33,6 +33,8 @@ public:
     std::vector<cv::Point> getMaxContour(cv::Mat map, cv::Point offset);
     void contourRefine(std::vector<cv::Point> contour, cv::Mat blobMask, std::vector<cv::Point> &refinedContour);
     void filterContours(std::vector<std::vector<cv::Point> > contours, std::vector<std::vector<cv::Point> > filtered);
+    double calculateEccentricity(std::vector<cv::Point> contour);
+    cv::Point getCenterOfMasses(cv::Mat blobMask);
 private:
     std::vector<uchar> sampleLine(cv::Mat mat, cv::Point p1, cv::Point p2);
     cv::Point2f normalAtPoint(cv::Point prev, cv::Point current, cv::Point next, bool inOut);

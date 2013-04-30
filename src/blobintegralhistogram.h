@@ -7,18 +7,17 @@
 class BlobIntegralHistogram
 {
 public:
-    BlobIntegralHistogram(size_t sectors, cv::Mat blobMask);
+    BlobIntegralHistogram(size_t sectors, cv::Mat blobMask, cv::Point histCenter);
     void Calculate();
     void Plot();
-    cv::Mat getPlottedMat() { return circularHistogram; }
-    std::vector<sector> getHistogram() { return histogram; }
+    cv::Mat circularHistogram;
+    std::vector<sector> histogram;
 private:
     void InitializeHistogram();
     void NormalizeHistogram();
     void AddToHistogram(double angle);
     cv::Mat blobMask;
-    std::vector<sector> histogram;
-    cv::Mat circularHistogram;
+    cv::Point histCenter;
     size_t sectors;
     size_t area;
 };

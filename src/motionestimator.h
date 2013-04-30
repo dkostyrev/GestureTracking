@@ -3,15 +3,19 @@
 #include "opencv2/opencv.hpp"
 #include <vector>
 #include "blobintegralhistogram.h"
+#include "direct.h"
+#include "time.h"
+#include "blobprocessor.h"
 class MotionEstimator
 {
 public:
     MotionEstimator();
     void AddFrame(cv::Mat frame);
     void ShowAllFrames();
+    size_t GetFrameCount();
     void GetMotionMat(cv::Mat& result);
     void getMotionVector(cv::Mat result, size_t framesSize);
-    void calculateMotionHistograms();
+    void calculateMotionHistograms(std::vector<std::vector<double> > &histograms, bool plot, bool save);
 private:
     std::vector<cv::Mat> frames;
 };

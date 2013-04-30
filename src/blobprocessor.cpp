@@ -2,49 +2,6 @@
 
 BlobProcessor::BlobProcessor() {}
 
-void BlobProcessor::trainProcedure(Classifier &classifier, cv::Mat map, std::vector<std::vector<cv::Point> > contours) {
-    cv::Mat buf = cv::Mat(map.size(), CV_8UC3);
-    std::vector<std::vector<cv::Point> > drawContours;
-    while (true) {
-        for (size_t i = 0; i < contours.size(); ++i) {
-            drawContours.clear();
-            drawContours.push_back(contours.at(i));
-            buf.setTo(cv::Scalar(0, 0, 0));
-            cv::drawContours(buf, drawContours, 0, cv::Scalar(255, 0, 0));
-            cv::imshow("classify contours", buf);
-            int key = cv::waitKey(0);
-            switch (key) {
-                case int('0'):
-                    std::cout << "classified as 0 class" << std::endl;
-                    classifier.AddToTrainSet(map.size(), contours.at(i), 0);
-                    break;
-                case int('1'):
-                    std::cout << "classified as 1 class" << std::endl;
-                    classifier.AddToTrainSet(map.size(), contours.at(i), 1);
-                    break;
-                case int('2'):
-                    std::cout << "classified as 2 class" << std::endl;
-                    classifier.AddToTrainSet(map.size(), contours.at(i), 2);
-                    break;
-                case int('3'):
-                    std::cout << "classified as 3 class" << std::endl;
-                    classifier.AddToTrainSet(map.size(), contours.at(i), 3);
-                    break;
-                case int ('e'):
-                    std::cout << "end of classification" << std::endl;
-                    classifier.Train(true);
-                    trainInProgress = false;
-                    return;
-                    break;
-                case 27:
-                    return;
-                default:
-                    break;
-            }
-        }
-    }
-}
-
 /*
  * Copyright by  Nikolas Markou
  * original C# version from:
@@ -342,6 +299,11 @@ void BlobProcessor::serializeContour(std::string filename, std::vector<cv::Point
     file.close();
 }
 
+cv::Point BlobProcessor::getCenterOfMasses(cv::Mat blobMask) {
+    cv::Moments moments = cv::moments(blobMask);
+    return cv::Point(moments.m10 / moments.m00, moments.m01 / moments.m00);
+}
+
 cv::Point BlobProcessor::getCenterOfMasses(std::vector<cv::Point> contour) {
     cv::Moments moments = cv::moments(contour);
     return cv::Point(moments.m10 / moments.m00, moments.m01 / moments.m00);
@@ -371,39 +333,18 @@ void BlobProcessor::checkTopBottom(bool &bottom, bool &top, cv::Mat hsv, cv::Poi
         bottom = false;
     }
 }
-/*
-void BlobProcessor::growRegions(cv::Mat input, cv::Rect roi, cv::Mat &regions) {
-    cv::Mat hsv;
-    std::vector<cv::Mat> planes;
-    input(roi).copyTo(hsv);
-    cv::cvtColor(hsv, hsv, CV_BGR2HSV);
-    cv::split(hsv, planes);
-    hsv = planes[0];
-    cv::Point start = cv::Point(hsv.cols / 2, hsv.rows / 2);
-    bool top = false, bottom = false;
-    std::vector<cv::Point> points;
-    points.push_back(start);
-    std::vector<cv::Point> contour;
-    while (points.size() > 0) {
-        cv::Point point = points.at(0);
-        points.erase(points.begin());
-        int x = point.x - 1;
-        while (x > 0 && checkPoint(cv::Point(x, point.y), point, hsv)) {
-            x --;
-            checkTopBottom(bottom, top, hsv, point, points, x);
-        }
-        contour.push_back(cv::Point(x, point.y));
-        x = point.x + 1;
-        while (x < hsv.cols && checkPoint(cv::Point(x, point.y), point, hsv)) {
-            x ++;
-            checkTopBottom(bottom, top, hsv, point, points, x);
-        }
-        contour.push_back(cv::Point(x, point.y));
-        std::cout << points.size() << std::endl;
-    }
-    std::cout << contour.size() << std::endl;
+
+double BlobProcessor::calculateEccentricity(std::vector<cv::Point> contour) {
+    cv::Moments moments = cv::moments(contour);
+    double a20 = moments.mu20 / moments.m00;
+    double a02 = moments.mu02 / moments.m00;
+    double a11 = moments.mu11 / moments.m00;
+    double l1 = (a20 + a02) / 2 + sqrt(4 * a11 * a11 + (a20 - a02) * (a20 - a02)) / 2;
+    double l2 = (a20 + a02) / 2 - sqrt(4 * a11 * a11 + (a20 - a02) * (a20 - a02)) / 2;
+    return 1 - l2 / l1;
+
 }
-*/
+
 void BlobProcessor::growRegions(bool useGray, cv::Mat input, cv::Point start, std::vector<cv::Point> &contour) {
 /*    if (useGray) {
         cv::Mat gray;

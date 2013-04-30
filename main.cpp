@@ -18,13 +18,13 @@ void testHistogram() {
     cv::Mat sample = cv::Mat(480, 640, CV_8UC1);
     sample.setTo(cv::Scalar(0));
     cv::rectangle(sample, cv::Rect(0, 240, 640, 240), cv::Scalar(255), -1);
-    BlobIntegralHistogram histogram = BlobIntegralHistogram(16, sample);
+    BlobIntegralHistogram histogram = BlobIntegralHistogram(16, sample, cv::Point(320, 240));
     histogram.Calculate();
     histogram.Plot();
-    cv::imshow("sample hist", histogram.getPlottedMat());
+    cv::imshow("sample hist", histogram.circularHistogram);
     cv::imshow("sample", sample);
-    for (size_t h = 0; h < histogram.getHistogram().size(); ++h) {
-        std::cout << histogram.getHistogram().at(h).value << ", ";
+    for (size_t h = 0; h < histogram.histogram.size(); ++h) {
+        std::cout << histogram.histogram.at(h).value << ", ";
     }
     std::cout << std::endl;
     cv::waitKey(0);
