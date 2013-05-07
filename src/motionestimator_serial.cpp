@@ -59,50 +59,6 @@ void MotionEstimator::getMotionVector(cv::Mat result, size_t framesSize)
 }
 
 
-struct calculate_histograms_body {
-  calculate_histograms_body(std::vector<std::vector<double> >* m_histograms, std::vector<cv::Mat> *m_frames,
-                            bool m_plot, bool m_save, cv::Point m_histCenter)
-  {
-      frames = m_frames;
-      histograms = m_histograms;
-      save = m_save;
-      plot = m_plot;
-      histCenter = m_histCenter;
-  }
-  bool save, plot;
-  cv::Point histCenter;
-  std::vector<cv::Mat> *frames;
-  std::vector<std::vector<double> >* histograms;
-
-  void operator()( const tbb::blocked_range<size_t>& range ) const
-  {
-    for(int k = range.begin(); k < range.end(); k += 1 ) {
-        BlobIntegralHistogram histogram = BlobIntegralHistogram(16, frames->at(k), histCenter);
-        histogram.Calculate();
-        if (plot)
-            histogram.Plot();
-        std::vector<double> currentHist;
-        for (size_t h = 0; h < histogram.histogram.size(); ++h) {
-            currentHist.push_back(histogram.histogram.at(h).value);
-        }
-        histograms->at(k) = currentHist;
-        if (plot) {
-            if (save) {
-                std::stringstream str;
-                str << k << "_hist.jpeg";
-                cv::imwrite(str.str(), histogram.circularHistogram);
-                str.str("");
-                str << k << ".jpeg";
-                cv::imwrite(str.str(), frames->at(k));
-            }
-            cv::imshow("hist", histogram.circularHistogram);
-            cv::waitKey(0);
-        }
-    }
-  }
-};
-
-
 void MotionEstimator::calculateMotionHistograms(std::vector<std::vector<double> >& histograms, bool plot, bool save)
 {
     std::string dir = "";
@@ -124,7 +80,31 @@ void MotionEstimator::calculateMotionHistograms(std::vector<std::vector<double> 
     }
     cv::Point histCenter = cv::Point(static_cast<int>(x / frames.size()), static_cast<int>(y / frames.size()));
     std::cout << "Histogram center = " << histCenter << std::endl;
-    histograms = std::vector<std::vector<double> >(frames.size(), std::vector<double>());
-    tbb::parallel_for(tbb::blocked_range<size_t>(0, frames.size()), calculate_histograms_body(&histograms, &frames, save, plot, histCenter));
+    for (size_t i = 0; i < frames.size(); ++i) {
+        BlobIntegralHistogram histogram = BlobIntegralHistogram(16, frames.at(i), histCenter);
+        histogram.Calculate();
+        if (plot)
+            histogram.Plot();
+        std::vector<double> currentHist;
+        for (size_t h = 0; h < histogram.histogram.size(); ++h) {
+            currentHist.push_back(histogram.histogram.at(h).value);
+            //std::cout << histogram.histogram.at(h).value << " ,";
+        }
+        //std::cout << std::endl;
+        histograms.push_back(currentHist);
+        if (plot) {
+            if (save) {
+                std::stringstream str;
+                //str << dir << "_" << i << "_hist.jpeg";
+                str << i << "_hist.jpeg";
+                cv::imwrite(str.str(), histogram.circularHistogram);
+                str.str("");
+                str << i << ".jpeg";
+                cv::imwrite(str.str(), frames.at(i));
+            }
+            cv::imshow("hist", histogram.circularHistogram);
+            cv::waitKey(0);
+        }
+    }
     frames.clear();
 }
