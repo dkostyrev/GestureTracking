@@ -108,15 +108,6 @@ int Classifier::Recognize(std::vector<std::vector<double> > histograms)
     stop = clock();
     std::cout << "Recognized. Took " <<  stop - start << "  milliseconds" << std::endl;
     return result;
-
-
-    /*cv::Mat predictions;
-    bayes.predict(trainMat, &predictions);
-    for (int i = 0; i < predictions.rows; ++i) {
-        std::cout << predictions.at<float>(i) << std::endl;
-    }
-    return 0;
-    */
 }
 
 size_t Classifier::GetTrainSetSize()
