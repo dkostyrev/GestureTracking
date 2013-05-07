@@ -24,6 +24,11 @@ size_t MotionEstimator::GetFrameCount()
     return frames.size();
 }
 
+void MotionEstimator::clear()
+{
+    frames.clear();
+}
+
 void MotionEstimator::GetMotionMat(cv::Mat &result)
 {
     if (frames.size() > 1) {
@@ -83,9 +88,9 @@ void MotionEstimator::calculateMotionHistograms(std::vector<std::vector<double> 
         std::vector<double> currentHist;
         for (size_t h = 0; h < histogram.histogram.size(); ++h) {
             currentHist.push_back(histogram.histogram.at(h).value);
-            std::cout << histogram.histogram.at(h).value << " ,";
+            //std::cout << histogram.histogram.at(h).value << " ,";
         }
-        std::cout << std::endl;
+        //std::cout << std::endl;
         histograms.push_back(currentHist);
         if (plot) {
             if (save) {

@@ -13,6 +13,7 @@ public:
     void AddFrame(cv::Mat frame);
     void ShowAllFrames();
     size_t GetFrameCount();
+    void clear();
     void GetMotionMat(cv::Mat& result);
     void getMotionVector(cv::Mat result, size_t framesSize);
     void calculateMotionHistograms(std::vector<std::vector<double> > &histograms, bool plot, bool save);

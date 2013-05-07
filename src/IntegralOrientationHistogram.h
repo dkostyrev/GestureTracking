@@ -3,7 +3,7 @@
 enum integramOrientationHistogramFilterType
 {INTEGRAL_ORIENTATION_HISTOGRAM_SOBEL,INTEGRAL_ORIENTATION_HISTOGRAM_SCHARR};
 struct sector {
-	float angle; double value;
+    double angle; float value;
 };
 class IntegralOrientationHistogram
 {

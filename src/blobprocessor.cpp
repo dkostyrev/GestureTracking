@@ -87,7 +87,7 @@ void BlobProcessor::filterContours(std::vector<std::vector<cv::Point> > contours
 std::vector<uchar> BlobProcessor::sampleLine(cv::Mat mat, cv::Point p1, cv::Point p2) {
     cv::LineIterator iterator = cv::LineIterator(mat, p1, p2);
     std::vector<uchar> sample;
-    for (size_t i = 0; i < iterator.count; ++i) {
+    for (int i = 0; i < iterator.count; ++i) {
         sample.push_back(*iterator.ptr);
         iterator++;
     }

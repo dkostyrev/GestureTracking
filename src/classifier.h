@@ -1,10 +1,11 @@
 #ifndef CLASSIFIER_H
 #define CLASSIFIER_H
-#define DEBUG = true;
+#define DEBUG = false;
 #include "opencv2/opencv.hpp"
 #include "IntegralOrientationHistogram.h"
 #include <iostream>
 #include <fstream>
+#include "time.h"
 /*struct FeatureVector {
     int label;
     std::vector<double> u;
@@ -18,9 +19,10 @@ struct FeatureVector {
 */
 struct FeatureVector {
     int label;
-    std::vector<double> a;
-    std::vector<double> b;
-    std::vector<double> c;
+    std::vector<float> a; //from zero to 1/4
+    std::vector<float> b; //from 1/4 to 1/2
+    std::vector<float> c; //from 1/2 to 3/4
+    std::vector<float> d; //from 3/4 to end
     int VECTOR_SIZE;
 };
 
@@ -36,13 +38,14 @@ public:
     int Recognize(std::vector<std::vector<double> > histograms);
     void serializeTrainingVectors(std::string filename);
 private:
+    FeatureVector getFeatureVector(int label, std::vector<std::vector<double> > histograms);
+    std::vector<float> getMedianHistogram(std::vector<std::vector<double> > histograms, int begin, int end);
     bool isTrained;
     double getEccentricity(std::vector<cv::Point> contour);
     void deserializeTrainingVectors(std::string filename);
     FeatureVector getFeatures(std::vector<cv::Point> contour, cv::Size matSize);
     std::vector<FeatureVector> trainVectors;
-    //cv::NormalBayesClassifier classifier;
-    CvANN_MLP classifier;
+    //CvANN_MLP classifier;
 
 };
 

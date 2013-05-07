@@ -2,8 +2,15 @@
 Controller::Controller()
 {
     blobgetter = BlobGetter(TIMEDISPERSION);
-    classifier = Classifier();
-    //classifier = Classifier("model.xml");
+    //classifier = Classifier();
+    int i = open("model.xml", 0);
+    if (i == -1) {
+        close(i);
+        std::cout << "model.xml doesn't exists, Training mode" << std::endl;
+    } else {
+        close(i);
+        classifier = Classifier("model.xml");
+    }
 }
 
 bool isGestureActive = false;
@@ -40,11 +47,11 @@ void Controller::Process(cv::Mat frame)
         if (count > threshold && !isGestureActive) {
             isGestureActive = true;
             std::cout << "START" << std::endl;
-            motionEstimator = MotionEstimator();
+            motionEstimator.clear();
         } else if (count < threshold && isGestureActive) {
             isGestureActive = false;
             std::cout << "STOP" << std::endl;
-            if (motionEstimator.GetFrameCount() > 3) {
+            if (motionEstimator.GetFrameCount() >= 5) {
                 if (classifier.IsTrained())
                     classify();
                 else
@@ -55,6 +62,11 @@ void Controller::Process(cv::Mat frame)
     cv::imshow("TimeDisp", foregroundMat);
     checkKeys();
 }
+
+//////////////////////////////////////
+//       COMPARE FUNCTIONS          //
+//////////////////////////////////////
+/*
 bool compare (std::vector<std::vector<double> > a, std::vector<std::vector<double> > b) {
     return a.size() < b.size();
 }
@@ -115,6 +127,10 @@ std::vector<std::vector<double> > Controller::getMedianVector(std::vector<std::v
     }
     return median;
 }
+*/
+//////////////////////////////////////
+//     END OF COMPARE FUNCTIONS     //
+//////////////////////////////////////
 
 void Controller::classify() {
     std::vector<std::vector<double> > histograms;
@@ -127,6 +143,10 @@ void Controller::labelAndTrain() {
     std::cout << "Label motion..." << std::endl;
     int key = cv::waitKey(0);
     int label = 0;
+    if (key == 27) {
+        std::cout << "skipping.." << std::endl;
+        return;
+    }
     switch ((char) key) {
         case '0':
             label = 0;
@@ -140,15 +160,22 @@ void Controller::labelAndTrain() {
         case '3':
             label = 3;
             break;
+        case '4':
+            label = 4;
+            break;
+        case '5':
+            label = 5;
+            break;
     }
     //motionEstimator.ShowAllFrames();
     std::vector<std::vector<double> > histograms;
+
     motionEstimator.calculateMotionHistograms(histograms, false, false);
-    //classifier.AddToTrainSet(label, histograms);
-    if (label == 1)
-        saved.push_back(histograms);
-    if (label == 0)
-        wrong.push_back(histograms);
+    classifier.AddToTrainSet(label, histograms);
+    //if (label == 1)
+    //    saved.push_back(histograms);
+    //if (label == 0)
+    //    wrong.push_back(histograms);
 }
 
 void Controller::checkKeys() {
@@ -160,9 +187,9 @@ void Controller::checkKeys() {
         break;
     case 't':
         std::cout << "training..." << std::endl;
-        //classifier.Train(true);
-        getEuclidianDistance(saved, saved);
-        getEuclidianDistance(saved, wrong);
+        classifier.Train(true);
+        //getEuclidianDistance(saved, saved);
+        //getEuclidianDistance(saved, wrong);
     default:
         break;
     }

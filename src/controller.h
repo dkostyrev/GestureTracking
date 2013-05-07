@@ -6,6 +6,7 @@
 #include "classifier.h"
 #include "motionestimator.h"
 #include <string>
+#include "time.h"
 enum MatchedClassifier {
     PALM,
     FIST,
