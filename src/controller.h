@@ -7,6 +7,7 @@
 #include "motionestimator.h"
 #include <string>
 #include "time.h"
+#include "winsock2.h"
 enum MatchedClassifier {
     PALM,
     FIST,
@@ -19,6 +20,7 @@ class Controller
 public:
     Controller();
     void Process(cv::Mat frame);
+    void sendSocket(std::string payload);
 private:
     void checkKeys();
     std::vector<std::vector<std::vector<double> > > resizeToMax(std::vector<std::vector<std::vector<double> > > data, std::vector<std::vector<double> > max);
