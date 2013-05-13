@@ -8,6 +8,7 @@
 #include <string>
 #include "time.h"
 #include "winsock2.h"
+#include "task.h"
 enum MatchedClassifier {
     PALM,
     FIST,

@@ -74,6 +74,7 @@ void Controller::classify() {
     std::cout << "Recognized as: = " << label << std::endl;
     std::stringstream str;
     str << label;
+
     sendSocket(str.str());
 }
 
@@ -112,53 +113,64 @@ void Controller::labelAndTrain() {
 
 }
 
+class SendToSocketTask: public tbb::task {
+    std::string payload;
+public:
+    SendToSocketTask(std::string payload) {
+        this->payload = payload;
+    }
+    task* execute() {
+        SOCKET SendSocket = INVALID_SOCKET;
+        WSADATA data;
+        int iResult;
+        sockaddr_in recvAddr;
+        iResult = WSAStartup(0x101, &data);
+        if (iResult != NO_ERROR) {
+            std::cout << "Wsa startup failed " << iResult << std::endl;
+        }
+
+        SendSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        if (SendSocket == INVALID_SOCKET) {
+            std::cout << "Invalid socket " << WSAGetLastError() << std::endl;
+            WSACleanup();
+            return NULL;
+        }
+        recvAddr.sin_family = AF_INET;
+        recvAddr.sin_port = htons(10000);
+        recvAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+        std::cout << "connecting socket" << std::endl;
+        iResult = connect(SendSocket, (struct sockaddr*) &recvAddr, sizeof(recvAddr));
+        if (iResult == SOCKET_ERROR) {
+            if (WSAGetLastError() == 10061)
+                std::cout << "Server is not running!" << std::endl;
+            else
+                std::cout << "Error while connecting socket " << WSAGetLastError() << std::endl;
+            closesocket(SendSocket);
+            WSACleanup();
+            return NULL;
+        }
+
+        std::cout << "sending data to socket..." << std::endl;
+        iResult = sendto(SendSocket, payload.c_str(), payload.length(), 0, (struct sockaddr*) & recvAddr, sizeof(recvAddr));
+        if (iResult == SOCKET_ERROR) {
+            std::cout << "Error while sending data socket " << WSAGetLastError() << std::endl;
+            closesocket(SendSocket);
+            WSACleanup();
+            return NULL;
+        }
+        std::cout << "finishing sending..." << std::endl;
+        iResult = closesocket(SendSocket);
+        if (iResult == SOCKET_ERROR) {
+            std::cout << "failed to close socket " << WSAGetLastError()  << std::endl;
+            WSACleanup();
+        }
+        WSACleanup();
+        return NULL;
+    }
+};
+
 void Controller::sendSocket(std::string payload) {
-    SOCKET SendSocket = INVALID_SOCKET;
-    WSADATA data;
-    int iResult;
-    sockaddr_in recvAddr;
-    iResult = WSAStartup(0x101, &data);
-    if (iResult != NO_ERROR) {
-        std::cout << "Wsa startup failed " << iResult << std::endl;
-    }
-
-    SendSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    if (SendSocket == INVALID_SOCKET) {
-        std::cout << "Invalid socket " << WSAGetLastError() << std::endl;
-        WSACleanup();
-        return;
-    }
-    recvAddr.sin_family = AF_INET;
-    recvAddr.sin_port = htons(10000);
-    recvAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    std::cout << "connecting socket" << std::endl;
-    iResult = connect(SendSocket, (struct sockaddr*) &recvAddr, sizeof(recvAddr));
-    if (iResult == SOCKET_ERROR) {
-        if (WSAGetLastError() == 10061)
-            std::cout << "Server is not running!" << std::endl;
-        else
-            std::cout << "Error while connecting socket " << WSAGetLastError() << std::endl;
-        closesocket(SendSocket);
-        WSACleanup();
-        return;
-    }
-
-    std::cout << "sending data to socket..." << std::endl;
-    iResult = sendto(SendSocket, payload.c_str(), payload.length(), 0, (struct sockaddr*) & recvAddr, sizeof(recvAddr));
-    if (iResult == SOCKET_ERROR) {
-        std::cout << "Error while sending data socket " << WSAGetLastError() << std::endl;
-        closesocket(SendSocket);
-        WSACleanup();
-        return;
-    }
-    std::cout << "finishing sending..." << std::endl;
-    iResult = closesocket(SendSocket);
-    if (iResult == SOCKET_ERROR) {
-        std::cout << "failed to close socket " << WSAGetLastError()  << std::endl;
-        WSACleanup();
-    }
-    WSACleanup();
-
+    tbb::task::spawn(* new (tbb::task::allocate_root()) SendToSocketTask(payload));
 }
 
 void Controller::checkKeys() {
