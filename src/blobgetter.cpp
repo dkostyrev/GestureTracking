@@ -32,6 +32,14 @@ void BlobGetter::getForegroundMap(cv::Mat input, cv::Mat& output) {
     }
 }
 
+void BlobGetter::getMixedMap(cv::Mat input, cv::Mat& output) {
+    cv::Mat skinMap, foregroundMap;
+    Process(input, skinMap, foregroundMap);
+    if (skinMap.empty() || foregroundMap.empty())
+        return;
+    cv::bitwise_and(foregroundMap, skinMap, output);
+}
+
 void BlobGetter::FilterBySize(cv::Mat rawSkinMap, cv::Mat& skinMap)
 {
     const int THRESHOLD = 100;

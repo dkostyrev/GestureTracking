@@ -18,6 +18,7 @@ public:
     void ResetColourThresholds();
     void DispMap(cv::Mat input, cv::Mat &output, int threshold);
     void getForegroundMap(cv::Mat input, cv::Mat &output);
+    void getMixedMap(cv::Mat input, cv::Mat &output);
 private:
     cv::Scalar defaultLow, defaultHigh, adaptLow, adaptHigh;
     bool isThresholdsAdapted;

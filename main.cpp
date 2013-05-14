@@ -30,6 +30,7 @@ void testHistogram() {
     cv::waitKey(0);
 }
 
+
 int main()
 {
     cv::VideoCapture cap;

@@ -1,7 +1,7 @@
 #include "classifier.h"
 
-cv::Mat trainMat;
-cv::NormalBayesClassifier bayes;
+cv::Mat trainMat, responsesMat;
+CvKNearest knn;
 
 Classifier::Classifier()
 {
@@ -12,7 +12,11 @@ Classifier::Classifier()
 
 Classifier::Classifier(std::string model) {
     trainVectors = std::vector<FeatureVector>();
-    bayes.load(model.c_str());
+    cv::FileStorage fs(model, cv::FileStorage::READ);
+    fs["train"] >> trainMat;
+    fs["responses"] >> responsesMat;
+    fs.release();
+    Train(false);
     std::cout << "Loaded from " << model << " and trained" << std::endl;
     this->isTrained = true;
 }
@@ -50,32 +54,33 @@ std::vector<float> Classifier::getMedianHistogram(std::vector<std::vector<double
     return result;
 }
 
-void Classifier::Train(bool save)
+void Classifier::Train(bool generateTrain)
 {
-    if (trainVectors.size() == 0) {
+    if (trainVectors.size() == 0 && generateTrain) {
         std::cout << "Train vector is empty!" << std::endl;
         return;
     }
-    cv::Mat trainMat = cv::Mat(trainVectors.size(), trainVectors.at(0).VECTOR_SIZE, CV_32FC1);
-    cv::Mat responsesMat = cv::Mat(trainVectors.size(), 1, CV_32FC1);
-    for (size_t i = 0; i < trainVectors.size(); ++i) {
-        responsesMat.at<float>(i, 0) =  static_cast<float>(trainVectors.at(i).label);
-        for (size_t a = 0; a < trainVectors.at(i).a.size(); ++a)
-            trainMat.at<float>(i, a) = trainVectors.at(i).a.at(a);
-        for (size_t b = 0; b < trainVectors.at(i).b.size(); ++b)
-            trainMat.at<float>(i, b + 16) = trainVectors.at(i).b.at(b);
-        for (size_t c = 0; c < trainVectors.at(i).c.size(); ++c)
-            trainMat.at<float>(i, c + 32) = trainVectors.at(i).c.at(c);
-        for (size_t d = 0; d < trainVectors.at(i).d.size(); ++d)
-            trainMat.at<float>(i, d + 48) = trainVectors.at(i).d.at(d);
+    if (generateTrain) {
+        trainMat = cv::Mat(trainVectors.size(), trainVectors.at(0).VECTOR_SIZE, CV_32FC1);
+        responsesMat = cv::Mat(trainVectors.size(), 1, CV_32FC1);
+        for (size_t i = 0; i < trainVectors.size(); ++i) {
+            responsesMat.at<float>(i, 0) =  static_cast<float>(trainVectors.at(i).label);
+            for (size_t a = 0; a < trainVectors.at(i).a.size(); ++a)
+                trainMat.at<float>(i, a) = trainVectors.at(i).a.at(a);
+            for (size_t b = 0; b < trainVectors.at(i).b.size(); ++b)
+                trainMat.at<float>(i, b + 16) = trainVectors.at(i).b.at(b);
+            for (size_t c = 0; c < trainVectors.at(i).c.size(); ++c)
+                trainMat.at<float>(i, c + 32) = trainVectors.at(i).c.at(c);
+            for (size_t d = 0; d < trainVectors.at(i).d.size(); ++d)
+                trainMat.at<float>(i, d + 48) = trainVectors.at(i).d.at(d);
+        }
     }
 
-    bayes = CvNormalBayesClassifier();
-    bayes.train(trainMat, responsesMat);
+    knn = CvKNearest();
+    knn.train(trainMat, responsesMat, cv::Mat(), false, 7);
 
     this->isTrained = true;
-    if (save) {
-        bayes.save("model.xml");
+    if (generateTrain) {
         serializeTrainingVectors("vectors.csv");
         cv::FileStorage fs("data.xml", cv::FileStorage::WRITE);
         fs << "train" <<  trainMat;
@@ -103,8 +108,7 @@ int Classifier::Recognize(std::vector<std::vector<double> > histograms)
         predictMat.at<float>(c + 32) = vector.c.at(c);
     for (size_t d = 0; d < vector.d.size(); ++d)
         predictMat.at<float>(d + 48) = vector.d.at(d);
-    //classifier.predict(predictMat, resultMat);
-    int result = static_cast<int>(bayes.predict(predictMat));
+    int result = static_cast<int>(knn.find_nearest(predictMat, 6));
     stop = clock();
     std::cout << "Recognized. Took " <<  stop - start << "  milliseconds" << std::endl;
     return result;

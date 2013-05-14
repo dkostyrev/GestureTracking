@@ -32,7 +32,7 @@ public:
     Classifier();
     Classifier(std::string model);
     void AddToTrainSet(int label, std::vector<std::vector<double> > histograms);
-    void Train(bool save);
+    void Train(bool generateTrain);
     bool IsTrained();
     size_t GetTrainSetSize();
     int Recognize(std::vector<std::vector<double> > histograms);

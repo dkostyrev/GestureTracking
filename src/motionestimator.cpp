@@ -76,7 +76,7 @@ struct calculate_histograms_body {
 
   void operator()( const tbb::blocked_range<size_t>& range ) const
   {
-    for(int k = range.begin(); k < range.end(); k += 1 ) {
+    for(size_t k = range.begin(); k < range.end(); k += 1 ) {
         BlobIntegralHistogram histogram = BlobIntegralHistogram(16, frames->at(k), histCenter);
         histogram.Calculate();
         if (plot)

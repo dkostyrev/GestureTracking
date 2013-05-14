@@ -2,13 +2,15 @@
 Controller::Controller()
 {
     blobgetter = BlobGetter(TIMEDISPERSION);
-    int i = open("model.xml", 0);
+    //std::string modelFile = "model.xml";
+    std::string modelFile = "data.xml";
+    int i = open(modelFile.c_str(), 0);
     if (i == -1) {
         close(i);
-        std::cout << "model.xml doesn't exists, Training mode" << std::endl;
+        std::cout << modelFile << " doesn't exists, Training mode" << std::endl;
     } else {
         close(i);
-        classifier = Classifier("model.xml");
+        classifier = Classifier(modelFile);
     }
 }
 
@@ -24,7 +26,9 @@ void Controller::Process(cv::Mat frame)
 {
 
     cv::Mat foregroundMat;
+
     blobgetter.getForegroundMap(frame, foregroundMat);
+    //blobgetter.getMixedMap(frame, foregroundMat);
     if (foregroundMat.empty())
         return;
 
