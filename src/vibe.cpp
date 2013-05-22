@@ -12,8 +12,8 @@ ViBe::ViBe(int width, int height)
 
 void ViBe::Initialize(cv::Mat firstframe)
 {
-    N = 10;
-    R = 20;
+    N = 2;
+    R = 40;
     smin = 1;
     r_s = 20 ;
     samples = std::vector<cv::Mat>(N);
@@ -25,6 +25,7 @@ void ViBe::Initialize(cv::Mat firstframe)
 
 void ViBe::Process(cv::Mat image, cv::Mat& segMap)
 {
+    segMap = cv::Mat(image.size(), CV_8UC1);
     for (int x = 0; x < image.cols ; x++){
         for (int y = 0 ; y < image.rows; y++) {
             int count = 0, index = 0 , dist = 0;

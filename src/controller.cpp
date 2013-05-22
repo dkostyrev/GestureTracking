@@ -33,7 +33,7 @@ void Controller::Process(cv::Mat frame)
         return;
 
     if (threshold == 0) {
-        threshold = static_cast<int>(frame.rows * frame.cols * 0.1);
+        threshold = static_cast<int>(frame.rows * frame.cols * 0.05);
         std::cout << "Threshold = " << threshold << std::endl;
     }
     if (topthreshold == 0) {

@@ -45,6 +45,7 @@ int main()
     Controller controller = Controller();
     while (cap.read(frame)) {
         controller.Process(frame);
+        cv::imshow("frame", frame);
         int key = cv::waitKey(1);
         if (key == 27)
             return 0;
