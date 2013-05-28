@@ -19,9 +19,7 @@ int threshold = 0;
 int topthreshold = 0;
 std::vector<cv::Mat> gesture;
 MotionEstimator motionEstimator;
-std::vector<std::vector<std::vector<double> > > saved;
-std::vector<std::vector<std::vector<double> > > wrong;
-
+std::vector<int> precendents;
 void Controller::Process(cv::Mat frame)
 {
 
@@ -33,7 +31,7 @@ void Controller::Process(cv::Mat frame)
         return;
 
     if (threshold == 0) {
-        threshold = static_cast<int>(frame.rows * frame.cols * 0.05);
+        threshold = static_cast<int>(frame.rows * frame.cols * 0.07);
         std::cout << "Threshold = " << threshold << std::endl;
     }
     if (topthreshold == 0) {
@@ -83,6 +81,8 @@ void Controller::classify() {
 }
 
 void Controller::labelAndTrain() {
+    if (precendents.size() == 0)
+        precendents = std::vector<int>(6, 0);
     std::cout << "Label motion..." << std::endl;
     int key = cv::waitKey(0);
     int label = 0;
@@ -109,7 +109,12 @@ void Controller::labelAndTrain() {
         case '5':
             label = 5;
             break;
+        case '6':
+            label = 6;
+            break;
     }
+    precendents[label - 1]++;
+    std::cout << "total precendents for class = " << label << " : "  << precendents[label - 1] << std::endl;
     std::vector<std::vector<double> > histograms;
 
     motionEstimator.calculateMotionHistograms(histograms, false, false);

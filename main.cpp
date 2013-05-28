@@ -3,11 +3,6 @@
 #include "src/blobintegralhistogram.h"
 using namespace std;
 
-/*Main steps:
- * 1) Segmentation
- * 2) Малое временное окно на кластере полученного из карты цвета, затем Собель, гистограмма, для определения смещения точек
- */
-
 enum Mode {
     SKIN,
     FOREGROUND,
