@@ -17,14 +17,15 @@ Controller::Controller()
 bool isGestureActive = false;
 int threshold = 0;
 int topthreshold = 0;
+long framecount = 0;
 std::vector<cv::Mat> gesture;
 MotionEstimator motionEstimator;
 std::vector<int> precendents;
+cv::Mat foregroundMat, currentFrame;
+
 void Controller::Process(cv::Mat frame)
 {
-
-    cv::Mat foregroundMat;
-
+    currentFrame = frame;
     blobgetter.getForegroundMap(frame, foregroundMat);
     //blobgetter.getMixedMap(frame, foregroundMat);
     if (foregroundMat.empty())
@@ -63,6 +64,8 @@ void Controller::Process(cv::Mat frame)
     }
     cv::imshow("TimeDisp", foregroundMat);
     checkKeys();
+    framecount++;
+
 }
 
 void Controller::classify() {
@@ -184,6 +187,7 @@ void Controller::sendSocket(std::string payload) {
 
 void Controller::checkKeys() {
     int key = cv::waitKey(1);
+    std::stringstream str;
     switch ((char) key) {
     case 's':
         std::cout << "serializing..." << std::endl;
@@ -192,6 +196,13 @@ void Controller::checkKeys() {
     case 't':
         std::cout << "training..." << std::endl;
         classifier.Train(true);
+        break;
+    case 'b':
+        std::cout << "captured as " << framecount << std::endl;
+        str << framecount;
+        cv::imwrite(str.str() + "_orig.jpeg", currentFrame);
+        cv::imwrite(str.str() + "_td.jpeg", foregroundMat);
+        break;
     default:
         break;
     }

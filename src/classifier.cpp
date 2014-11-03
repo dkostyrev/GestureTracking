@@ -108,10 +108,42 @@ int Classifier::Recognize(std::vector<std::vector<double> > histograms)
         predictMat.at<float>(c + 32) = vector.c.at(c);
     for (size_t d = 0; d < vector.d.size(); ++d)
         predictMat.at<float>(d + 48) = vector.d.at(d);
-    int result = static_cast<int>(knn.find_nearest(predictMat, 6));
+    cv::Mat distances, results, responses;
+    int result = static_cast<int>(knn.find_nearest(predictMat, 6, results, responses, distances));
+    std::cout << "ChiSqr = " << CalculateChiSqrDistances(vector, result) << std::endl;
     stop = clock();
     std::cout << "Recognized. Took " <<  stop - start << "  milliseconds" << std::endl;
     return result;
+}
+
+float calcMetrics(std::vector<float> input, std::vector<float> compare) {
+    float sum = .0;
+    for (size_t i = 0; i < input.size(); ++i) {
+        sum += sqrt(pow(input.at(i) - compare.at(i), 2));
+    }
+    return sum;
+}
+
+float Classifier::CalculateChiSqrDistances(FeatureVector vector, int label) {
+    float distances = 0;
+    int precendents = 0;
+    std::vector<float> input;
+    input.insert(input.end(), vector.a.begin(), vector.a.end());
+    input.insert(input.end(), vector.b.begin(), vector.b.end());
+    input.insert(input.end(), vector.c.begin(), vector.c.end());
+    input.insert(input.end(), vector.d.begin(), vector.d.end());
+    for (int i = 0; i < responsesMat.rows; ++i) {
+        size_t index = static_cast<size_t>(responsesMat.at<float>(i, 0)) - 1;
+        if (label - 1 == index) {
+            std::vector<float> compare;
+            for (int j = 0; j < trainMat.cols; ++j) {
+                compare.push_back(trainMat.at<float>(cv::Point(j, i)));
+            }
+            distances += calcMetrics(input, compare);
+            precendents ++;
+        }
+    }
+    return distances / precendents;
 }
 
 size_t Classifier::GetTrainSetSize()

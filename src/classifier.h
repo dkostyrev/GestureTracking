@@ -38,6 +38,7 @@ public:
     int Recognize(std::vector<std::vector<double> > histograms);
     void serializeTrainingVectors(std::string filename);
 private:
+    float CalculateChiSqrDistances(FeatureVector vector, int label);
     FeatureVector getFeatureVector(int label, std::vector<std::vector<double> > histograms);
     std::vector<float> getMedianHistogram(std::vector<std::vector<double> > histograms, int begin, int end);
     bool isTrained;
