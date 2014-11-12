@@ -1,24 +1,31 @@
 #include "blobgetter.h"
-BlobGetter::BlobGetter(BackgroudSubstractionTechique backgroundSubtractor)
+BlobGetter::BlobGetter(BackgroudSubtractionTechique backgroundSubtractor)
 {
     this->backgroundSubtractor = backgroundSubtractor;
-    this->isFirstFrame = true;
-    this->medianKernel = cv::Mat(9, 9, CV_32F);
-    this->medianKernel.setTo(cv::Scalar(1./81));
-    this->defaultLow = cv::Scalar(20, 133, 80);
-    this->defaultHigh = cv::Scalar(140, 173, 120);
+    isFirstFrame = true;
+    medianKernel = cv::Mat(9, 9, CV_32F);
+    medianKernel.setTo(cv::Scalar(1./81));
+    defaultLow = cv::Scalar(20, 133, 80);
+    defaultHigh = cv::Scalar(140, 173, 120);
     ResetColourThresholds();
 }
 
-void BlobGetter::Process(cv::Mat input, cv::Mat &skinMap, cv::Mat &foregroundMap)
+void BlobGetter::Process(cv::Mat &input, cv::Mat &skinMap, cv::Mat &foregroundMap)
 {
-    GetSkinRegionMap(input, skinMap);
+    cv::GaussianBlur(input, input, cv::Size(5, 5), 1, 1);
+    cv::cvtColor(input, skinMap, CV_BGR2YCrCb);
+    if (isThresholdsAdapted)
+        cv::inRange(skinMap, this->adaptLow, this->adaptHigh, skinMap);
+    else
+        cv::inRange(skinMap, this->defaultLow, this->defaultHigh, skinMap);
+    cv::erode(skinMap, skinMap, cv::Mat());
+    cv::dilate(skinMap, skinMap, cv::Mat());
     //FilterBySize(skinMap, skinMap);
     MedianFilter(skinMap, skinMap, 1);
-    getForegroundMap(input, foregroundMap);
+    ProcessForegroundMap(input, foregroundMap);
 }
 
-void BlobGetter::getForegroundMap(cv::Mat input, cv::Mat& output) {
+void BlobGetter::GetForegroundMap(cv::Mat &input, cv::Mat& output) {
     cv::cvtColor(input, input, CV_BGR2GRAY);
     if (isFirstFrame){
         output = cv::Mat(input.size(), CV_8UC1);
@@ -26,13 +33,11 @@ void BlobGetter::getForegroundMap(cv::Mat input, cv::Mat& output) {
         isFirstFrame = false;
     }
     else {
-        GetForegroundMap(input, output);
-        if (!output.empty())
-            MedianFilter(output, output, 2);
+        ProcessForegroundMap(input, output);
     }
 }
 
-void BlobGetter::getMixedMap(cv::Mat input, cv::Mat& output) {
+void BlobGetter::GetMixedMap(cv::Mat &input, cv::Mat& output) {
     cv::Mat skinMap, foregroundMap;
     Process(input, skinMap, foregroundMap);
     if (skinMap.empty() || foregroundMap.empty())
@@ -40,7 +45,7 @@ void BlobGetter::getMixedMap(cv::Mat input, cv::Mat& output) {
     cv::bitwise_and(foregroundMap, skinMap, output);
 }
 
-void BlobGetter::FilterBySize(cv::Mat rawSkinMap, cv::Mat& skinMap)
+void BlobGetter::FilterBySize(cv::Mat &rawSkinMap, cv::Mat& skinMap)
 {
     const int THRESHOLD = 100;
     std::vector<std::vector<cv::Point> > contours, goodContours;
@@ -55,7 +60,7 @@ void BlobGetter::FilterBySize(cv::Mat rawSkinMap, cv::Mat& skinMap)
 }
 
 
-void BlobGetter::InitializeBackgroundSubtractor(cv::Mat firstFrame)
+void BlobGetter::InitializeBackgroundSubtractor(cv::Mat &firstFrame)
 {
     switch (this->backgroundSubtractor){
         case TIMEDISPERSION: {
@@ -79,41 +84,7 @@ void BlobGetter::InitializeBackgroundSubtractor(cv::Mat firstFrame)
     }
 }
 
-void BlobGetter::GetForegroundMap(cv::Mat input, cv::Mat& foregroundMap)
-{
-    switch (this->backgroundSubtractor){
-        case TIMEDISPERSION: {
-            if (timeDispersion.UpdateHistory(input)){
-                timeDispersion.Process(foregroundMap);
-            }
-            break;
-        }
-        case VIBE: {
-            vibe.Process(input, foregroundMap);
-            break;
-        }
-        case MOG: {
-            mog2(input, foregroundMap, 0);
-        }
-        case NO : {
-            foregroundMap = cv::Mat(input.size(), CV_8UC1);
-        }
-    }
-}
-
-void BlobGetter::GetSkinRegionMap(cv::Mat input, cv::Mat& skinMap)
-{
-    cv::GaussianBlur(input, input, cv::Size(5, 5), 1, 1);
-    cv::cvtColor(input, skinMap, CV_BGR2YCrCb);
-    if (isThresholdsAdapted)
-        cv::inRange(skinMap, this->adaptLow, this->adaptHigh, skinMap);
-    else
-        cv::inRange(skinMap, this->defaultLow, this->defaultHigh, skinMap);
-    cv::erode(skinMap, skinMap, cv::Mat());
-    cv::dilate(skinMap, skinMap, cv::Mat());
-}
-
-void BlobGetter::MedianFilter(cv::Mat input, cv::Mat &output, size_t times)
+void BlobGetter::MedianFilter(cv::Mat &input, cv::Mat &output, size_t times)
 {
     cv::Mat mask = input, md;
     for (size_t i = 0; i < times; ++i) {
@@ -123,7 +94,31 @@ void BlobGetter::MedianFilter(cv::Mat input, cv::Mat &output, size_t times)
     output = mask;
 }
 
-void BlobGetter::DispMap(cv::Mat input, cv::Mat &output, int threshold)
+void BlobGetter::ProcessForegroundMap(cv::Mat &input, cv::Mat &output)
+{
+    switch (backgroundSubtractor){
+        case TIMEDISPERSION: {
+            if (timeDispersion.UpdateHistory(input)){
+                timeDispersion.Process(output);
+            }
+            break;
+        }
+        case VIBE: {
+            vibe.Process(input, output);
+            break;
+        }
+        case MOG: {
+            mog2(input, output, 0);
+        }
+        case NO : {
+            output = cv::Mat(input.size(), CV_8UC1);
+        }
+    }
+    if (!output.empty())
+        MedianFilter(output, output, 2);
+}
+
+void BlobGetter::DispMap(cv::Mat &input, cv::Mat &output, int threshold)
 {
     cv::cvtColor(input, input, CV_BGR2GRAY);
     input.convertTo(input, CV_32F);
@@ -138,7 +133,7 @@ void BlobGetter::DispMap(cv::Mat input, cv::Mat &output, int threshold)
     //MedianFilter(output, output, 1);
 }
 
-void BlobGetter::AdaptColourThresholds(cv::Mat input, cv::Rect roi)
+void BlobGetter::AdaptColourThresholds(cv::Mat &input, cv::Rect roi)
 {
     cv::Mat ycrcb, crPlot, cbPlot;
     ResetColourThresholds();
@@ -146,13 +141,13 @@ void BlobGetter::AdaptColourThresholds(cv::Mat input, cv::Rect roi)
     ycrcb = ycrcb(roi);
     cv::imshow("roi",ycrcb);
     ColorFinder finder = ColorFinder();
-    finder.find(adaptLow, adaptHigh, 1, ycrcb, 10);
-    finder.plot();
-    crPlot = finder.getPlottedMat();
+    finder.Find(adaptLow, adaptHigh, 1, ycrcb, 10);
+    finder.Plot();
+    crPlot = finder.GetPlottedMat();
     cv::imshow("crPlot", crPlot);
-    finder.find(adaptLow, adaptHigh, 2, ycrcb, 10);
-    finder.plot();
-    cbPlot = finder.getPlottedMat();
+    finder.Find(adaptLow, adaptHigh, 2, ycrcb, 10);
+    finder.Plot();
+    cbPlot = finder.GetPlottedMat();
     cv::imshow("cbPlot", cbPlot);
     std::cout << adaptLow.val[0] << "< y  <" << adaptHigh[0] << std::endl;
     std::cout << adaptLow.val[1] << "< cr  <" << adaptHigh[1] << std::endl;

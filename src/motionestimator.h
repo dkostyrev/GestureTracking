@@ -6,7 +6,7 @@
 #include "direct.h"
 #include "time.h"
 #include "blobprocessor.h"
-#include "tbb.h"
+//#include "tbb.h"
 class MotionEstimator
 {
 public:

@@ -4,21 +4,23 @@
 #include "blobgetter.h"
 #include "blobprocessor.h"
 #include "classifier.h"
-#include "motionestimator.h"
+#include "motionestimator_serial.h"
 #include <string>
 #include "time.h"
 #include "winsock2.h"
-#include "task.h"
-enum MatchedClassifier {
-    PALM,
-    FIST,
-    FINGER,
-    NONE
-};
+//#include "task.h"
 
 class Controller
 {
 public:
+    enum MatchedClassifier {
+        PALM,
+        FIST,
+        FINGER,
+        NONE
+    };
+
+
     Controller();
     void Process(cv::Mat frame);
     void sendSocket(std::string payload);

@@ -31,7 +31,7 @@ void TimeDispersion::Process(cv::Mat &segMap)
     segMap = (segMap >= this->threshold * this->threshold);
 }
 
-bool TimeDispersion::UpdateHistory(cv::Mat newFrame)
+bool TimeDispersion::UpdateHistory(cv::Mat &newFrame)
 {
     newFrame.convertTo(newFrame, CV_32F);
     history.insert(history.begin(), newFrame);

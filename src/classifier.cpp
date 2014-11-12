@@ -1,13 +1,9 @@
 #include "classifier.h"
 
-cv::Mat trainMat, responsesMat;
-CvKNearest knn;
-
 Classifier::Classifier()
 {
-    trainVectors = std::vector<FeatureVector>();
+    this->trainVectors = std::vector<FeatureVector>();
     this->isTrained = false;
-
 }
 
 Classifier::Classifier(std::string model) {
@@ -23,25 +19,25 @@ Classifier::Classifier(std::string model) {
 
 void Classifier::AddToTrainSet(int label, std::vector<std::vector<double> > histograms)
 {
-    FeatureVector fv = getFeatureVector(label, histograms);
+    FeatureVector fv = GetFeatureVector(label, histograms);
     std::cout << "Added label = " << label << " total frames = " << histograms.size() << std::endl;
     std::cout << "a = " << fv.a.size() << " b = " << fv.b.size() << " c = " << fv.c.size() << " d = " << fv.d.size() << std::endl;
     trainVectors.push_back(fv);
 }
 
-FeatureVector Classifier::getFeatureVector(int label, std::vector<std::vector<double> > histograms)
+Classifier::FeatureVector Classifier::GetFeatureVector(int label, std::vector<std::vector<double> > histograms)
 {
     FeatureVector fv;
     fv.VECTOR_SIZE = 16 * 4;
     fv.label = label;
-    fv.a = getMedianHistogram(histograms, 0, (histograms.size() - 1) / 4);
-    fv.b = getMedianHistogram(histograms, (histograms.size() - 1) / 4, (histograms.size() - 1) / 2);
-    fv.c = getMedianHistogram(histograms, (histograms.size() - 1) / 2, 3 * (histograms.size() - 1) / 4);
-    fv.d = getMedianHistogram(histograms, 3 * (histograms.size() - 1) / 4, histograms.size() - 1);
+    fv.a = GetMedianHistogram(histograms, 0, (histograms.size() - 1) / 4);
+    fv.b = GetMedianHistogram(histograms, (histograms.size() - 1) / 4, (histograms.size() - 1) / 2);
+    fv.c = GetMedianHistogram(histograms, (histograms.size() - 1) / 2, 3 * (histograms.size() - 1) / 4);
+    fv.d = GetMedianHistogram(histograms, 3 * (histograms.size() - 1) / 4, histograms.size() - 1);
     return fv;
 }
 
-std::vector<float> Classifier::getMedianHistogram(std::vector<std::vector<double> > histograms, int begin, int end)
+std::vector<float> Classifier::GetMedianHistogram(std::vector<std::vector<double> > histograms, int begin, int end)
 {
     std::vector<float> result = std::vector<float>(histograms.at(0).size(), 0.0);
     for (int i = begin; i < end; ++i) {
@@ -76,8 +72,8 @@ void Classifier::Train(bool generateTrain)
         }
     }
 
-    knn = CvKNearest();
-    knn.train(trainMat, responsesMat, cv::Mat(), false, 7);
+    classifier = std::make_shared<CvKNearest>();
+    classifier->train(trainMat, responsesMat, cv::Mat(), false, 7);
 
     this->isTrained = true;
     if (generateTrain) {
@@ -98,7 +94,7 @@ int Classifier::Recognize(std::vector<std::vector<double> > histograms)
 {
     clock_t start, stop;
     start = clock();
-    FeatureVector vector = getFeatureVector(0, histograms);
+    FeatureVector vector = GetFeatureVector(0, histograms);
     cv::Mat predictMat = cv::Mat(1, vector.VECTOR_SIZE, CV_32FC1);
     for (size_t a = 0; a < vector.a.size(); ++a)
         predictMat.at<float>(a) = vector.a.at(a);
@@ -109,7 +105,7 @@ int Classifier::Recognize(std::vector<std::vector<double> > histograms)
     for (size_t d = 0; d < vector.d.size(); ++d)
         predictMat.at<float>(d + 48) = vector.d.at(d);
     cv::Mat distances, results, responses;
-    int result = static_cast<int>(knn.find_nearest(predictMat, 6, results, responses, distances));
+    int result = static_cast<int>(classifier->find_nearest(predictMat, 6, results, responses, distances));
     std::cout << "ChiSqr = " << CalculateChiSqrDistances(vector, result) << std::endl;
     stop = clock();
     std::cout << "Recognized. Took " <<  stop - start << "  milliseconds" << std::endl;
@@ -173,7 +169,7 @@ void Classifier::serializeTrainingVectors(std::string filename)
     file.close();
 }
 
-void Classifier::deserializeTrainingVectors(std::string filename)
+void Classifier::DeserializeTrainingVectors(std::string filename)
 {
     std::ifstream file (filename.c_str());
     std::string line;

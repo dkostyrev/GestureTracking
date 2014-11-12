@@ -1,11 +1,6 @@
-#include "motionestimator.h"
+#include "motionestimator_serial.h"
 
-MotionEstimator::MotionEstimator()
-{
-    this->frames = std::vector<cv::Mat>();
-}
-
-void MotionEstimator::AddFrame(cv::Mat frame)
+void MotionEstimator::AddFrame(cv::Mat &frame)
 {
     cv::Mat buf;
     frame.copyTo(buf);
@@ -24,7 +19,7 @@ size_t MotionEstimator::GetFrameCount()
     return frames.size();
 }
 
-void MotionEstimator::clear()
+void MotionEstimator::Clear()
 {
     frames.clear();
 }
@@ -44,7 +39,7 @@ void MotionEstimator::GetMotionMat(cv::Mat &result)
     }
 }
 
-void MotionEstimator::getMotionVector(cv::Mat result, size_t framesSize)
+void MotionEstimator::GetMotionVector(cv::Mat &result, size_t framesSize)
 {
     cv::Mat bufResult;
     result.copyTo(bufResult);
@@ -59,7 +54,7 @@ void MotionEstimator::getMotionVector(cv::Mat result, size_t framesSize)
 }
 
 
-void MotionEstimator::calculateMotionHistograms(std::vector<std::vector<double> >& histograms, bool plot, bool save)
+void MotionEstimator::CalculateMotionHistograms(std::vector<std::vector<double> >& histograms, bool plot, bool save)
 {
     std::string dir = "";
     if (plot && save) {
@@ -74,7 +69,7 @@ void MotionEstimator::calculateMotionHistograms(std::vector<std::vector<double> 
     int x = 0;
     int y = 0;
     for (size_t i = 0; i < frames.size(); ++i) {
-        cv::Point center = blobProcessor.getCenterOfMasses(frames.at(i));
+        cv::Point center = blobProcessor.GetCenterOfMasses(frames.at(i));
         x += center.x;
         y += center.y;
     }

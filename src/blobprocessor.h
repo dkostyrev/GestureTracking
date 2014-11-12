@@ -1,5 +1,4 @@
-#ifndef BLOBPROCESSOR_H
-#define BLOBPROCESSOR_H
+#pragma once
 #include "opencv2/opencv.hpp"
 #include "IntegralOrientationHistogram.h"
 #include "classifier.h"
@@ -11,13 +10,7 @@ class BlobProcessor
 {
 public:
     BlobProcessor();
-    cv::Point getCenterOfMasses(std::vector<cv::Point> contour);
-    cv::Point getCenterOfMasses(cv::Mat blobMask);
-    double getEccentricity(std::vector<cv::Point> contour);
+    cv::Point GetCenterOfMasses(std::vector<cv::Point> contour);
+    cv::Point GetCenterOfMasses(cv::Mat& blobMask);
+    double GetEccentricity(std::vector<cv::Point> contour);
 };
-
-
-
-
-
-#endif // BLOBPROCESSOR_H

@@ -10,7 +10,7 @@ IntegralOrientationHistogram::IntegralOrientationHistogram()
 	dy = new cv::Mat(roi->size(),CV_32F);
     //circularHistogram = cv::Mat(400,400,CV_8UC3);
 	this->threshold = 100;
-	this->histogram = std::vector<sector>();
+    this->histogram = std::vector<Sector>();
 }
 //--------------------------------------------------------------
 IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors,unsigned char *data,int w,int h,int threshold)
@@ -21,7 +21,7 @@ IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors,unsigned 
 	dy = new cv::Mat(roi->size(),CV_32F);
     //circularHistogram = cv::Mat(400,400,CV_8UC3);
 	this->threshold = threshold;
-	this->histogram = std::vector<sector>();
+    this->histogram = std::vector<Sector>();
 	this->filterType = INTEGRAL_ORIENTATION_HISTOGRAM_SOBEL;
 }
 //--------------------------------------------------------------
@@ -34,7 +34,7 @@ IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors,integramO
 	dy = new cv::Mat(roi->size(),CV_32F);
     //circularHistogram = cv::Mat(400,400,CV_8UC3);
 	this->threshold = threshold;
-	this->histogram = std::vector<sector>();
+    this->histogram = std::vector<Sector>();
 }
 //--------------------------------------------------------------
 IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors,integramOrientationHistogramFilterType filterType,cv::Mat *roi,int w,int h,int threshold)
@@ -46,7 +46,7 @@ IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors,integramO
 	dy = new cv::Mat(roi->size(),CV_32F);
     //circularHistogram = cv::Mat(400,400,CV_8UC3);
 	this->threshold = threshold;
-	this->histogram = std::vector<sector>();
+    this->histogram = std::vector<Sector>();
 }
 //--------------------------------------------------------------
 IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors, integramOrientationHistogramFilterType filterType, cv::Mat src, int threshold) {
@@ -54,7 +54,7 @@ IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors, integram
     this->filterType = filterType;
     this->roi = &src;
     this->threshold = threshold;
-    this->histogram = std::vector<sector>();
+    this->histogram = std::vector<Sector>();
     dx = new cv::Mat(roi->size(),CV_32F);
     dy = new cv::Mat(roi->size(),CV_32F);
     circularHistogram = cv::Mat(400,400,CV_8UC3);
@@ -71,13 +71,13 @@ IntegralOrientationHistogram::IntegralOrientationHistogram(int sectors, integram
 		this->roi = new cv::Mat(src,roirect);
 	}
 	this->threshold = threshold;
-	this->histogram = std::vector<sector>();
+    this->histogram = std::vector<Sector>();
 	dx = new cv::Mat(roi->size(),CV_32F);
 	dy = new cv::Mat(roi->size(),CV_32F);
     circularHistogram = cv::Mat(400,400,CV_8UC3);
 }
 //--------------------------------------------------------------
-IntegralOrientationHistogram::IntegralOrientationHistogram(std::vector<sector> histogram, bool compareOnly) {
+IntegralOrientationHistogram::IntegralOrientationHistogram(std::vector<Sector> histogram, bool compareOnly) {
 	this->total_sectors = histogram.size();
 	this->filterType = INTEGRAL_ORIENTATION_HISTOGRAM_SOBEL;
 	this->threshold = 100;
@@ -91,10 +91,10 @@ IntegralOrientationHistogram::IntegralOrientationHistogram(std::vector<sector> h
     //circularHistogram = cv::Mat(400, 400, CV_8UC3);
 }
 //--------------------------------------------------------------
-IntegralOrientationHistogram::IntegralOrientationHistogram( std::vector<std::vector<sector> > histograms )
+IntegralOrientationHistogram::IntegralOrientationHistogram( std::vector<std::vector<Sector> > histograms )
 {
 	circularHistogram = cv::Mat(400,400,CV_8UC3);
-	this->histogram = std::vector<sector>();
+    this->histogram = std::vector<Sector>();
 	if (histograms.size() > 0){
         std::vector<std::vector<double> > sorted_sectors(histograms[0].size());
 		for (size_t i = 0; i < histograms.size(); ++i){
@@ -104,7 +104,7 @@ IntegralOrientationHistogram::IntegralOrientationHistogram( std::vector<std::vec
 		}
 		for (size_t i = 0; i < sorted_sectors.size(); ++i){
 			std::sort(sorted_sectors[i].begin(), sorted_sectors[i].end());
-			sector new_sector;
+            Sector new_sector;
 			new_sector.value = sorted_sectors[i][sorted_sectors[i].size()/2];
             new_sector.angle = (2*CV_PI/sorted_sectors.size())*i;
 			this->histogram.push_back(new_sector);
@@ -118,7 +118,7 @@ void IntegralOrientationHistogram::initializeHistogram() {
 	dx->setTo(cv::InputArray(0));
 	dy->setTo(cv::InputArray(0));
 	for (int i = 0; i < this->total_sectors; i++){
-		sector current = sector();
+        Sector current;
 		current.value = 0;
         current.angle = (2*CV_PI/this->total_sectors)*i;
 		this->histogram.push_back(current);
@@ -264,10 +264,10 @@ double IntegralOrientationHistogram::calculateAngle(IntegralOrientationHistogram
 	}
 }
 //--------------------------------------------------------------
-std::vector<int> IntegralOrientationHistogram::getMaximums(std::vector<sector> values, int totalmaximums) {
+std::vector<int> IntegralOrientationHistogram::getMaximums(std::vector<Sector> values, int totalmaximums) {
 	int max = -1; int maxi = -1;
 	std::vector<int> maximums = std::vector<int>();
-	std::vector<sector> buff = std::vector<sector>();
+    std::vector<Sector> buff = std::vector<Sector>();
 	buff.assign(values.begin(), values.end());
 	while (maximums.size() != totalmaximums){
 		max = -1; maxi = -1;
@@ -283,7 +283,7 @@ std::vector<int> IntegralOrientationHistogram::getMaximums(std::vector<sector> v
 	return maximums;
 }
 //--------------------------------------------------------------
-std::vector<sector> IntegralOrientationHistogram::getHistogram() {
+std::vector<IntegralOrientationHistogram::Sector> IntegralOrientationHistogram::getHistogram() {
 	return histogram;
 }
 //--------------------------------------------------------------

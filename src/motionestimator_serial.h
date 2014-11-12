@@ -1,5 +1,4 @@
-#ifndef MOTIONESTIMATOR_H
-#define MOTIONESTIMATOR_H
+#pragma once
 #include "opencv2/opencv.hpp"
 #include <vector>
 #include "blobintegralhistogram.h"
@@ -9,16 +8,13 @@
 class MotionEstimator
 {
 public:
-    MotionEstimator();
-    void AddFrame(cv::Mat frame);
+    void AddFrame(cv::Mat& frame);
     void ShowAllFrames();
     size_t GetFrameCount();
-    void clear();
+    void Clear();
     void GetMotionMat(cv::Mat& result);
-    void getMotionVector(cv::Mat result, size_t framesSize);
-    void calculateMotionHistograms(std::vector<std::vector<double> > &histograms, bool plot, bool save);
+    void GetMotionVector(cv::Mat& result, size_t framesSize);
+    void CalculateMotionHistograms(std::vector<std::vector<double> > &histograms, bool plot, bool save);
 private:
     std::vector<cv::Mat> frames;
 };
-
-#endif // MOTIONESTIMATOR_H
